@@ -162,7 +162,7 @@
 
                 // 2. OSM Data (Strict Highway)
                 log("Fetching vector data...");
-                const radius = 2000; 
+                const radius = 3000; 
                 const query = `[out:json];(way["highway"]["highway"!~"footway|cycleway|path|service|track|steps"](around:${radius},${lat},${lon}););out body;>;out skel qt;`;
                 
                 const osmRes = await fetch(OVERPASS_API, { method: 'POST', body: query });
