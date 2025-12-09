@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JAPAN DISTORTION MAP | SBCM Audit</title>
+    <title>JAPAN DISTORTION MAP</title>
     
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -11,40 +11,53 @@
     <style>
         :root {
             --bg: #050505; --panel: #111; --text: #e0e0e0;
-            --accent: #00ff41; --warn: #ff0055; --sub: #888;
+            --accent: #00ff41; --warn: #ff0055; --sub: #666;
         }
-        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; padding: 20px; line-height: 1.5; }
-        .container { max-width: 600px; margin: 0 auto; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; padding: 20px; line-height: 1.5; user-select: none; }
+        .container { max-width: 500px; margin: 0 auto; }
         
-        header { text-align: center; margin-bottom: 40px; border-bottom: 1px solid #333; padding-bottom: 20px; }
-        h1 { margin: 0; font-size: 1.8rem; letter-spacing: -1px; }
-        .subtitle { font-size: 0.8rem; color: var(--sub); margin-top: 5px; }
+        header { text-align: center; margin-bottom: 30px; }
+        h1 { margin: 0; font-size: 1.5rem; letter-spacing: 2px; text-shadow: 0 0 10px rgba(255,255,255,0.2); }
+        .subtitle { font-size: 0.7rem; color: var(--sub); }
 
-        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
-        input { flex: 1; background: #000; border: 1px solid #444; color: #fff; padding: 15px; font-family: inherit; font-size: 1.1rem; outline: none; }
-        input:focus { border-color: #fff; }
-        button { background: #fff; color: #000; border: none; padding: 0 20px; font-weight: bold; cursor: pointer; font-family: inherit; }
-        button:hover { opacity: 0.8; }
-        button:disabled { background: #333; color: #888; cursor: not-allowed; }
+        /* KEYPAD GRID */
+        .keypad {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+            margin-bottom: 20px;
+        }
+        .key-btn {
+            aspect-ratio: 1; /* 正方形 */
+            background: #000; border: 1px solid #333; color: #fff;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.1s; border-radius: 4px;
+        }
+        .key-btn:active { background: #222; transform: scale(0.95); border-color: var(--accent); }
+        .key-label { font-size: 0.9rem; font-weight: bold; }
+        .key-sub { font-size: 0.6rem; color: #666; margin-top: 2px; }
 
-        #result-card { display: none; background: var(--panel); border: 1px solid #333; padding: 20px; border-radius: 8px; animation: slideUp 0.5s; }
+        /* RESULT CARD */
+        #result-card { display: none; background: var(--panel); border: 1px solid #333; padding: 20px; border-radius: 8px; animation: slideUp 0.3s; margin-top: 20px; }
         
-        .verdict-box { text-align: center; margin-bottom: 20px; padding: 15px; border: 2px solid #333; }
-        .verdict-title { font-size: 0.8rem; color: var(--sub); text-transform: uppercase; }
-        .verdict-main { font-size: 2.5rem; font-weight: bold; margin: 10px 0; }
+        .verdict-box { text-align: center; margin-bottom: 20px; padding: 10px; border: 2px solid #333; }
+        .verdict-main { font-size: 2rem; font-weight: bold; margin: 5px 0; }
         
         .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
         .stat-item { background: #000; padding: 10px; border: 1px solid #333; }
-        .stat-label { font-size: 0.7rem; color: var(--sub); display: block; }
-        .stat-val { font-size: 1.2rem; font-weight: bold; }
+        .stat-label { font-size: 0.6rem; color: var(--sub); display: block; }
+        .stat-val { font-size: 1.1rem; font-weight: bold; }
 
-        .log-console { background: #000; color: #666; font-size: 0.7rem; padding: 10px; height: 100px; overflow-y: auto; border-top: 1px dashed #333; margin-top: 20px; }
+        /* LOG */
+        .log-console { background: #000; color: #444; font-size: 0.6rem; padding: 10px; height: 60px; overflow-y: auto; border-top: 1px dashed #333; margin-top: 20px; }
 
+        /* COLORS */
         .safe { color: var(--accent); border-color: var(--accent); }
         .critical { color: var(--warn); border-color: var(--warn); }
         .warning { color: orange; border-color: orange; }
 
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        /* UTILS */
+        .hidden { display: none; }
+        .loading { opacity: 0.5; pointer-events: none; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
@@ -52,38 +65,62 @@
     <div class="container">
         <header>
             <h1>DISTORTION MAP</h1>
-            <div class="subtitle">INFRASTRUCTURE AUDIT v1.1 (Strict)</div>
+            <div class="subtitle">SELECT TARGET SECTOR</div>
         </header>
 
-        <div class="search-box">
-            <input type="text" id="city-input" placeholder="都市名 (例: 白糠町, 柏市)">
-            <button id="btn-scan" onclick="startAudit()">SCAN</button>
+        <!-- 3x3 KEYPAD -->
+        <div class="keypad" id="keypad">
+            <div class="key-btn" onclick="scan('豊島区')"><span class="key-label">豊島区</span><span class="key-sub">TKYO</span></div>
+            <div class="key-btn" onclick="scan('港区')"><span class="key-label">港区</span><span class="key-sub">TKYO</span></div>
+            <div class="key-btn" onclick="scan('柏市')"><span class="key-label">柏市</span><span class="key-sub">CHIBA</span></div>
+            
+            <div class="key-btn" onclick="scan('京都市')"><span class="key-label">京都市</span><span class="key-sub">KYOTO</span></div>
+            <div class="key-btn" onclick="scan('大阪市')"><span class="key-label">大阪市</span><span class="key-sub">OSAKA</span></div>
+            <div class="key-btn" onclick="scan('神戸市')"><span class="key-label">神戸市</span><span class="key-sub">HYOGO</span></div>
+            
+            <div class="key-btn" onclick="scan('福岡市')"><span class="key-label">福岡市</span><span class="key-sub">FUK</span></div>
+            <div class="key-btn" onclick="scan('夕張市')"><span class="key-label">夕張市</span><span class="key-sub">HKD</span></div>
+            <div class="key-btn" onclick="scan('白糠町')"><span class="key-label">白糠町</span><span class="key-sub">HKD</span></div>
         </div>
 
+        <!-- MANUAL INPUT TOGGLE -->
+        <div style="text-align:center; font-size:0.8rem; margin-bottom:10px;">
+            <a href="#" onclick="toggleManual()" style="color:#666;">[ MANUAL INPUT ]</a>
+        </div>
+        <div id="manual-input" class="hidden" style="display:flex; gap:5px; margin-bottom:20px;">
+            <input type="text" id="city-in" placeholder="City Name" style="flex:1; background:#000; border:1px solid #333; color:#fff; padding:10px;">
+            <button onclick="scan(document.getElementById('city-in').value)" style="background:#fff; border:none; font-weight:bold; padding:0 15px;">GO</button>
+        </div>
+
+        <!-- RESULT -->
         <div id="result-card">
+            <div style="text-align:right; margin-bottom:5px;">
+                <span id="target-name" style="font-weight:bold; color:#fff;">TARGET</span>
+            </div>
+            
             <div id="verdict-box" class="verdict-box">
                 <div class="verdict-title">INFRASTRUCTURE STATUS</div>
-                <div id="verdict-text" class="verdict-main">ANALYZING...</div>
-                <div id="verdict-desc" style="font-size:0.9rem;">---</div>
+                <div id="verdict-text" class="verdict-main">---</div>
+                <div id="verdict-desc" style="font-size:0.8rem;">---</div>
             </div>
 
             <div class="stat-grid">
                 <div class="stat-item">
-                    <span class="stat-label">ROAD LENGTH (Radius 2km)</span>
+                    <span class="stat-label">ROAD (2km)</span>
                     <span id="val-road" class="stat-val">0 km</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">REAL INTERSECTIONS</span>
+                    <span class="stat-label">NODES</span>
                     <span id="val-node" class="stat-val">0</span>
                 </div>
                 <div class="stat-item" style="grid-column: span 2;">
-                    <span class="stat-label">BURDEN SCORE (m/Intersection)</span>
-                    <span id="val-score" class="stat-val">0.0</span>
+                    <span class="stat-label">MAINTENANCE BURDEN</span>
+                    <span id="val-score" class="stat-val">0.0</span> <span style="font-size:0.7rem; color:#666;">m/node</span>
                 </div>
             </div>
 
-            <a id="tweet-btn" href="#" target="_blank" style="display:block; text-align:center; color:#fff; text-decoration:none; border:1px solid #fff; padding:10px; font-weight:bold;">
-                <i class="fab fa-x-twitter"></i> 結果を告発する
+            <a id="tweet-btn" href="#" target="_blank" style="display:block; text-align:center; color:#fff; text-decoration:none; border:1px solid #fff; padding:10px; font-weight:bold; font-size:0.9rem;">
+                <i class="fab fa-x-twitter"></i> SHARE REPORT
             </a>
         </div>
 
@@ -98,87 +135,64 @@
             c.innerHTML = `> ${msg}<br>` + c.innerHTML;
         }
 
-        async function startAudit() {
-            const city = document.getElementById('city-input').value;
+        function toggleManual() {
+            const el = document.getElementById('manual-input');
+            el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+        }
+
+        async function scan(city) {
             if (!city) return;
 
-            // UI Reset
-            const btn = document.getElementById('btn-scan');
-            btn.disabled = true; btn.innerText = "SCANNING...";
+            // UI Lock
+            document.getElementById('keypad').classList.add('loading');
             document.getElementById('result-card').style.display = 'block';
-            document.getElementById('verdict-text').innerText = "CALCULATING...";
+            document.getElementById('target-name').innerText = city.toUpperCase();
+            document.getElementById('verdict-text').innerText = "SCANNING...";
             document.getElementById('verdict-box').className = "verdict-box"; 
             
             try {
-                log(`Locating ${city}...`);
+                log(`Targeting ${city}...`);
                 
-                // 1. Coordinates
+                // 1. Coords
                 const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${city}`);
                 const geoData = await geoRes.json();
-                if (!geoData || geoData.length === 0) throw new Error("City not found.");
+                if (!geoData.length) throw new Error("Target not found.");
                 const lat = geoData[0].lat;
                 const lon = geoData[0].lon;
-                log(`Target Locked: ${lat}, ${lon}`);
 
-                // 2. Fetch OSM Data (Strict Mode: Highway only)
-                log("Fetching road network...");
+                // 2. OSM Data (Strict Highway)
+                log("Fetching vector data...");
                 const radius = 2000; 
-                const query = `
-                    [out:json];
-                    (
-                      way["highway"]
-                         ["highway"!~"footway|cycleway|path|service|track|steps"]
-                         (around:${radius},${lat},${lon});
-                    );
-                    out body;
-                    >;
-                    out skel qt;
-                `;
+                const query = `[out:json];(way["highway"]["highway"!~"footway|cycleway|path|service|track|steps"](around:${radius},${lat},${lon}););out body;>;out skel qt;`;
                 
                 const osmRes = await fetch(OVERPASS_API, { method: 'POST', body: query });
                 const osmData = await osmRes.json();
                 
-                // 3. Analyze Logic (Intersection Counting)
-                log(`Processing ${osmData.elements.length} elements...`);
-                
-                let nodeUsage = {}; // nodeID -> count
+                // 3. Analysis (Intersection Count)
+                log("Calculating topology...");
+                let nodeUsage = {};
                 let roadLength = 0;
-                const nodeMap = {}; // ID -> coords
+                const nodeMap = {};
 
-                // First pass: Map nodes
                 osmData.elements.forEach(el => {
-                    if (el.type === 'node') {
-                        nodeMap[el.id] = {lat: el.lat, lon: el.lon};
-                    }
+                    if (el.type === 'node') nodeMap[el.id] = {lat: el.lat, lon: el.lon};
                 });
 
-                // Second pass: Process ways
                 osmData.elements.forEach(el => {
                     if (el.type === 'way' && el.nodes) {
-                        // Count node usage for Intersection detection
-                        el.nodes.forEach(n => {
-                            nodeUsage[n] = (nodeUsage[n] || 0) + 1;
-                        });
-                        
-                        // Calc Length
+                        el.nodes.forEach(n => nodeUsage[n] = (nodeUsage[n] || 0) + 1);
                         for(let i=0; i<el.nodes.length-1; i++) {
                             const n1 = nodeMap[el.nodes[i]];
                             const n2 = nodeMap[el.nodes[i+1]];
-                            if(n1 && n2) {
-                                roadLength += getDistance(n1.lat, n1.lon, n2.lat, n2.lon);
-                            }
+                            if(n1 && n2) roadLength += getDistance(n1.lat, n1.lon, n2.lat, n2.lon);
                         }
                     }
                 });
 
-                // Count TRUE Intersections (Nodes shared by > 1 way)
                 let intersections = 0;
-                for (let id in nodeUsage) {
-                    if (nodeUsage[id] > 1) intersections++;
-                }
+                for (let id in nodeUsage) if (nodeUsage[id] > 1) intersections++;
 
                 const km = roadLength / 1000;
-                // Safety: avoid division by zero
                 const score = intersections > 0 ? roadLength / intersections : 9999; 
 
                 // 4. Render
@@ -186,53 +200,36 @@
                 document.getElementById('val-node').innerText = intersections.toLocaleString();
                 document.getElementById('val-score').innerText = score.toFixed(1);
 
-                // Verdict Logic (Strict)
                 const vBox = document.getElementById('verdict-box');
                 const vText = document.getElementById('verdict-text');
                 const vDesc = document.getElementById('verdict-desc');
                 
                 let status = "";
-                // 基準: 交差点間隔が200mを超えると、明らかにスカスカ（田舎の一本道）
                 if (score > 200) {
-                    vBox.classList.add("critical");
-                    vText.innerText = "CRITICAL";
-                    vDesc.innerText = "維持困難：低密度・拡散型都市";
-                    status = "【危険】";
+                    vBox.classList.add("critical"); vText.innerText = "CRITICAL"; vDesc.innerText = "MAINTENANCE IMPOSSIBLE"; status = "【危険】維持困難";
                 } else if (score < 130) {
-                    vBox.classList.add("safe");
-                    vText.innerText = "SUSTAINABLE";
-                    vDesc.innerText = "高効率：コンパクトシティ";
-                    status = "【優秀】";
+                    vBox.classList.add("safe"); vText.innerText = "SUSTAINABLE"; vDesc.innerText = "COMPACT & EFFICIENT"; status = "【優秀】高効率";
                 } else {
-                    vBox.classList.add("warning");
-                    vText.innerText = "WARNING";
-                    vDesc.innerText = "注意：効率低下の兆候あり";
-                    status = "【注意】";
+                    vBox.classList.add("warning"); vText.innerText = "WARNING"; vDesc.innerText = "SPRAWL DETECTED"; status = "【注意】拡散傾向";
                 }
 
-                const tweet = `【SBCM都市監査】\n📍 ${city} のインフラ効率\n\n🛣️ 負担指数: ${score.toFixed(1)}m/交差点\n⚖️ 判定: ${status}\n\n#SBCM #DistortionMap`;
+                const tweet = `【SBCM都市監査】\n📍 ${city} のインフラ効率\n\n🛣️ 負担指数: ${score.toFixed(1)}m/node\n⚖️ 判定: ${status}\n\n#SBCM #DistortionMap`;
                 document.getElementById('tweet-btn').href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweet)}`;
-
-                log("Audit Complete.");
+                log("Done.");
 
             } catch (e) {
-                log("ERROR: " + e.message);
-                alert("エラー: データの取得に失敗しました。");
+                log("Error: " + e.message);
+                alert("Scan Failed.");
             } finally {
-                btn.disabled = false; btn.innerText = "SCAN";
+                document.getElementById('keypad').classList.remove('loading');
             }
         }
 
-        // Distance Calc
         function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; 
-            const φ1 = lat1 * Math.PI/180;
-            const φ2 = lat2 * Math.PI/180;
-            const Δφ = (lat2-lat1) * Math.PI/180;
-            const Δλ = (lon2-lon1) * Math.PI/180;
+            const R = 6371e3; const φ1 = lat1 * Math.PI/180; const φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2-lat1) * Math.PI/180; const Δλ = (lon2-lon1) * Math.PI/180;
             const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         }
     </script>
 </body>
