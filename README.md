@@ -17,11 +17,9 @@
 **👉 [Launch Distortion Map](https://sbcm-alliance.github.io/distortion-map/)**
 *(PC / Smartphone Browser)*
 
-| Urban (Sustainable) | Rural (Critical) |
-| :---: | :---: |
-| <img src="docs/demo_tokyo.png" width="300" alt="Tokyo"> | <img src="docs/demo_yubari.png" width="300" alt="Yubari"> |
-| *Compact City (Toshima-ku)* | *Infrastructure Collapse (Yubari)* |
-
+|柏市|港区|夕張市|
+|:---:|:---:|:---:|
+|![](images/kashiwa.jpg)|![](images/tkminato.jpg)|![](images/yuubari.jpg)|
 ---
 
 ## 📐 The Logic (SBCM Audit v3.0)
