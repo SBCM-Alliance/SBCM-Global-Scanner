@@ -5,44 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JAPAN DISTORTION MAP | SBCM Audit</title>
     
-    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
         :root {
-            --bg: #050505;
-            --panel: #111;
-            --text: #e0e0e0;
-            --accent: #00ff41; /* Safe */
-            --warn: #ff0055;   /* Critical */
-            --sub: #888;
+            --bg: #050505; --panel: #111; --text: #e0e0e0;
+            --accent: #00ff41; --warn: #ff0055; --sub: #888;
         }
         body { margin: 0; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; padding: 20px; line-height: 1.5; }
-        
-        /* CONTAINER */
         .container { max-width: 600px; margin: 0 auto; }
         
-        /* HEADER */
         header { text-align: center; margin-bottom: 40px; border-bottom: 1px solid #333; padding-bottom: 20px; }
         h1 { margin: 0; font-size: 1.8rem; letter-spacing: -1px; }
         .subtitle { font-size: 0.8rem; color: var(--sub); margin-top: 5px; }
 
-        /* INPUT AREA */
         .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
-        input { 
-            flex: 1; background: #000; border: 1px solid #444; color: #fff; 
-            padding: 15px; font-family: inherit; font-size: 1.1rem; outline: none;
-        }
+        input { flex: 1; background: #000; border: 1px solid #444; color: #fff; padding: 15px; font-family: inherit; font-size: 1.1rem; outline: none; }
         input:focus { border-color: #fff; }
-        button { 
-            background: #fff; color: #000; border: none; padding: 0 20px; 
-            font-weight: bold; cursor: pointer; font-family: inherit;
-        }
+        button { background: #fff; color: #000; border: none; padding: 0 20px; font-weight: bold; cursor: pointer; font-family: inherit; }
         button:hover { opacity: 0.8; }
         button:disabled { background: #333; color: #888; cursor: not-allowed; }
 
-        /* RESULT CARD */
         #result-card { display: none; background: var(--panel); border: 1px solid #333; padding: 20px; border-radius: 8px; animation: slideUp 0.5s; }
         
         .verdict-box { text-align: center; margin-bottom: 20px; padding: 15px; border: 2px solid #333; }
@@ -54,12 +38,8 @@
         .stat-label { font-size: 0.7rem; color: var(--sub); display: block; }
         .stat-val { font-size: 1.2rem; font-weight: bold; }
 
-        .log-console { 
-            background: #000; color: #666; font-size: 0.7rem; padding: 10px; 
-            height: 100px; overflow-y: auto; border-top: 1px dashed #333; margin-top: 20px;
-        }
+        .log-console { background: #000; color: #666; font-size: 0.7rem; padding: 10px; height: 100px; overflow-y: auto; border-top: 1px dashed #333; margin-top: 20px; }
 
-        /* COLORS */
         .safe { color: var(--accent); border-color: var(--accent); }
         .critical { color: var(--warn); border-color: var(--warn); }
         .warning { color: orange; border-color: orange; }
@@ -72,11 +52,11 @@
     <div class="container">
         <header>
             <h1>DISTORTION MAP</h1>
-            <div class="subtitle">SBCM INFRASTRUCTURE AUDIT</div>
+            <div class="subtitle">INFRASTRUCTURE AUDIT v1.1 (Strict)</div>
         </header>
 
         <div class="search-box">
-            <input type="text" id="city-input" placeholder="都市名 (例: 柏市, 夕張市)">
+            <input type="text" id="city-input" placeholder="都市名 (例: 白糠町, 柏市)">
             <button id="btn-scan" onclick="startAudit()">SCAN</button>
         </div>
 
@@ -89,15 +69,15 @@
 
             <div class="stat-grid">
                 <div class="stat-item">
-                    <span class="stat-label">ROAD DENSITY</span>
+                    <span class="stat-label">ROAD LENGTH (Radius 2km)</span>
                     <span id="val-road" class="stat-val">0 km</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">INTERSECTIONS</span>
+                    <span class="stat-label">REAL INTERSECTIONS</span>
                     <span id="val-node" class="stat-val">0</span>
                 </div>
                 <div class="stat-item" style="grid-column: span 2;">
-                    <span class="stat-label">MAINTENANCE BURDEN (m/Node)</span>
+                    <span class="stat-label">BURDEN SCORE (m/Intersection)</span>
                     <span id="val-score" class="stat-val">0.0</span>
                 </div>
             </div>
@@ -107,10 +87,7 @@
             </a>
         </div>
 
-        <div class="log-console" id="console">
-            > System Ready.<br>
-            > Enter city name to start OSM audit.
-        </div>
+        <div class="log-console" id="console">> System Ready.</div>
     </div>
 
     <script>
@@ -125,37 +102,32 @@
             const city = document.getElementById('city-input').value;
             if (!city) return;
 
-            // Reset UI
+            // UI Reset
             const btn = document.getElementById('btn-scan');
             btn.disabled = true; btn.innerText = "SCANNING...";
             document.getElementById('result-card').style.display = 'block';
             document.getElementById('verdict-text').innerText = "CALCULATING...";
-            document.getElementById('verdict-box').className = "verdict-box"; // reset color
+            document.getElementById('verdict-box').className = "verdict-box"; 
             
             try {
                 log(`Locating ${city}...`);
                 
-                // 1. Get Coordinates (Nominatim)
+                // 1. Coordinates
                 const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${city}`);
                 const geoData = await geoRes.json();
-                
-                if (!geoData || geoData.length === 0) {
-                    throw new Error("City not found.");
-                }
-                
+                if (!geoData || geoData.length === 0) throw new Error("City not found.");
                 const lat = geoData[0].lat;
                 const lon = geoData[0].lon;
-                log(`Coordinates: ${lat}, ${lon}`);
+                log(`Target Locked: ${lat}, ${lon}`);
 
-                // 2. Get OSM Data (Radius 2km)
-                // Drive network only
-                log("Fetching infrastructure data (Radius 2km)...");
+                // 2. Fetch OSM Data (Strict Mode: Highway only)
+                log("Fetching road network...");
                 const radius = 2000; 
                 const query = `
                     [out:json];
                     (
                       way["highway"]
-                         ["highway"!~"footway|cycleway|path|service|track"]
+                         ["highway"!~"footway|cycleway|path|service|track|steps"]
                          (around:${radius},${lat},${lon});
                     );
                     out body;
@@ -163,31 +135,30 @@
                     out skel qt;
                 `;
                 
-                const osmRes = await fetch(OVERPASS_API, {
-                    method: 'POST',
-                    body: query
-                });
+                const osmRes = await fetch(OVERPASS_API, { method: 'POST', body: query });
                 const osmData = await osmRes.json();
                 
-                // 3. Analyze Logic (Client-side)
-                log(`Analyzing ${osmData.elements.length} elements...`);
+                // 3. Analyze Logic (Intersection Counting)
+                log(`Processing ${osmData.elements.length} elements...`);
                 
-                let nodes = new Set();
+                let nodeUsage = {}; // nodeID -> count
                 let roadLength = 0;
-                
-                // Simple distance calc (Haversine approximation for speed)
-                const nodeMap = {};
-                
+                const nodeMap = {}; // ID -> coords
+
+                // First pass: Map nodes
                 osmData.elements.forEach(el => {
                     if (el.type === 'node') {
                         nodeMap[el.id] = {lat: el.lat, lon: el.lon};
                     }
                 });
 
+                // Second pass: Process ways
                 osmData.elements.forEach(el => {
                     if (el.type === 'way' && el.nodes) {
-                        // Count Intersections (simplified: unique nodes in ways)
-                        el.nodes.forEach(n => nodes.add(n));
+                        // Count node usage for Intersection detection
+                        el.nodes.forEach(n => {
+                            nodeUsage[n] = (nodeUsage[n] || 0) + 1;
+                        });
                         
                         // Calc Length
                         for(let i=0; i<el.nodes.length-1; i++) {
@@ -200,40 +171,46 @@
                     }
                 });
 
-                const km = roadLength / 1000;
-                const count = nodes.size;
-                const score = roadLength / count; // m per node
+                // Count TRUE Intersections (Nodes shared by > 1 way)
+                let intersections = 0;
+                for (let id in nodeUsage) {
+                    if (nodeUsage[id] > 1) intersections++;
+                }
 
-                // 4. Render Result
+                const km = roadLength / 1000;
+                // Safety: avoid division by zero
+                const score = intersections > 0 ? roadLength / intersections : 9999; 
+
+                // 4. Render
                 document.getElementById('val-road').innerText = km.toFixed(1) + " km";
-                document.getElementById('val-node').innerText = count.toLocaleString();
+                document.getElementById('val-node').innerText = intersections.toLocaleString();
                 document.getElementById('val-score').innerText = score.toFixed(1);
 
-                // Verdict
+                // Verdict Logic (Strict)
                 const vBox = document.getElementById('verdict-box');
                 const vText = document.getElementById('verdict-text');
                 const vDesc = document.getElementById('verdict-desc');
                 
                 let status = "";
+                // 基準: 交差点間隔が200mを超えると、明らかにスカスカ（田舎の一本道）
                 if (score > 200) {
                     vBox.classList.add("critical");
                     vText.innerText = "CRITICAL";
-                    vDesc.innerText = "インフラ維持困難：拡散しすぎた都市";
+                    vDesc.innerText = "維持困難：低密度・拡散型都市";
                     status = "【危険】";
-                } else if (score < 120) {
+                } else if (score < 130) {
                     vBox.classList.add("safe");
                     vText.innerText = "SUSTAINABLE";
-                    vDesc.innerText = "高効率：コンパクトな都市構造";
+                    vDesc.innerText = "高効率：コンパクトシティ";
                     status = "【優秀】";
                 } else {
                     vBox.classList.add("warning");
                     vText.innerText = "WARNING";
-                    vDesc.innerText = "注意：郊外化・スプロールの兆候";
+                    vDesc.innerText = "注意：効率低下の兆候あり";
                     status = "【注意】";
                 }
 
-                // Tweet Link
-                const tweet = `【SBCM都市監査】\n📍 ${city} のインフラ効率\n\n🛣️ 維持負担: ${score.toFixed(1)}m/node\n⚖️ 判定: ${status}\n\nあなたの街もチェック↓\n#SBCM #DistortionMap`;
+                const tweet = `【SBCM都市監査】\n📍 ${city} のインフラ効率\n\n🛣️ 負担指数: ${score.toFixed(1)}m/交差点\n⚖️ 判定: ${status}\n\n#SBCM #DistortionMap`;
                 document.getElementById('tweet-btn').href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweet)}`;
 
                 log("Audit Complete.");
@@ -246,16 +223,14 @@
             }
         }
 
-        // Helper: Distance between coords (meters)
+        // Distance Calc
         function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // metres
+            const R = 6371e3; 
             const φ1 = lat1 * Math.PI/180;
             const φ2 = lat2 * Math.PI/180;
             const Δφ = (lat2-lat1) * Math.PI/180;
             const Δλ = (lon2-lon1) * Math.PI/180;
-            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                      Math.cos(φ1) * Math.cos(φ2) *
-                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             return R * c;
         }
