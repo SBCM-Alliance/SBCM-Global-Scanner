@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JAPAN DISTORTION MAP | SBCM Audit</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --bg: #050505;
+            --panel: #111;
+            --text: #e0e0e0;
+            --accent: #00ff41; /* Safe */
+            --warn: #ff0055;   /* Critical */
+            --sub: #888;
+        }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; padding: 20px; line-height: 1.5; }
+        
+        /* CONTAINER */
+        .container { max-width: 600px; margin: 0 auto; }
+        
+        /* HEADER */
+        header { text-align: center; margin-bottom: 40px; border-bottom: 1px solid #333; padding-bottom: 20px; }
+        h1 { margin: 0; font-size: 1.8rem; letter-spacing: -1px; }
+        .subtitle { font-size: 0.8rem; color: var(--sub); margin-top: 5px; }
+
+        /* INPUT AREA */
+        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
+        input { 
+            flex: 1; background: #000; border: 1px solid #444; color: #fff; 
+            padding: 15px; font-family: inherit; font-size: 1.1rem; outline: none;
+        }
+        input:focus { border-color: #fff; }
+        button { 
+            background: #fff; color: #000; border: none; padding: 0 20px; 
+            font-weight: bold; cursor: pointer; font-family: inherit;
+        }
+        button:hover { opacity: 0.8; }
+        button:disabled { background: #333; color: #888; cursor: not-allowed; }
+
+        /* RESULT CARD */
+        #result-card { display: none; background: var(--panel); border: 1px solid #333; padding: 20px; border-radius: 8px; animation: slideUp 0.5s; }
+        
+        .verdict-box { text-align: center; margin-bottom: 20px; padding: 15px; border: 2px solid #333; }
+        .verdict-title { font-size: 0.8rem; color: var(--sub); text-transform: uppercase; }
+        .verdict-main { font-size: 2.5rem; font-weight: bold; margin: 10px 0; }
+        
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .stat-item { background: #000; padding: 10px; border: 1px solid #333; }
+        .stat-label { font-size: 0.7rem; color: var(--sub); display: block; }
+        .stat-val { font-size: 1.2rem; font-weight: bold; }
+
+        .log-console { 
+            background: #000; color: #666; font-size: 0.7rem; padding: 10px; 
+            height: 100px; overflow-y: auto; border-top: 1px dashed #333; margin-top: 20px;
+        }
+
+        /* COLORS */
+        .safe { color: var(--accent); border-color: var(--accent); }
+        .critical { color: var(--warn); border-color: var(--warn); }
+        .warning { color: orange; border-color: orange; }
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>DISTORTION MAP</h1>
+            <div class="subtitle">SBCM INFRASTRUCTURE AUDIT</div>
+        </header>
+
+        <div class="search-box">
+            <input type="text" id="city-input" placeholder="都市名 (例: 柏市, 夕張市)">
+            <button id="btn-scan" onclick="startAudit()">SCAN</button>
+        </div>
+
+        <div id="result-card">
+            <div id="verdict-box" class="verdict-box">
+                <div class="verdict-title">INFRASTRUCTURE STATUS</div>
+                <div id="verdict-text" class="verdict-main">ANALYZING...</div>
+                <div id="verdict-desc" style="font-size:0.9rem;">---</div>
+            </div>
+
+            <div class="stat-grid">
+                <div class="stat-item">
+                    <span class="stat-label">ROAD DENSITY</span>
+                    <span id="val-road" class="stat-val">0 km</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">INTERSECTIONS</span>
+                    <span id="val-node" class="stat-val">0</span>
+                </div>
+                <div class="stat-item" style="grid-column: span 2;">
+                    <span class="stat-label">MAINTENANCE BURDEN (m/Node)</span>
+                    <span id="val-score" class="stat-val">0.0</span>
+                </div>
+            </div>
+
+            <a id="tweet-btn" href="#" target="_blank" style="display:block; text-align:center; color:#fff; text-decoration:none; border:1px solid #fff; padding:10px; font-weight:bold;">
+                <i class="fab fa-x-twitter"></i> 結果を告発する
+            </a>
+        </div>
+
+        <div class="log-console" id="console">
+            > System Ready.<br>
+            > Enter city name to start OSM audit.
+        </div>
+    </div>
+
+    <script>
+        const OVERPASS_API = "https://overpass-api.de/api/interpreter";
+        
+        function log(msg) {
+            const c = document.getElementById('console');
+            c.innerHTML = `> ${msg}<br>` + c.innerHTML;
+        }
+
+        async function startAudit() {
+            const city = document.getElementById('city-input').value;
+            if (!city) return;
+
+            // Reset UI
+            const btn = document.getElementById('btn-scan');
+            btn.disabled = true; btn.innerText = "SCANNING...";
+            document.getElementById('result-card').style.display = 'block';
+            document.getElementById('verdict-text').innerText = "CALCULATING...";
+            document.getElementById('verdict-box').className = "verdict-box"; // reset color
+            
+            try {
+                log(`Locating ${city}...`);
+                
+                // 1. Get Coordinates (Nominatim)
+                const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${city}`);
+                const geoData = await geoRes.json();
+                
+                if (!geoData || geoData.length === 0) {
+                    throw new Error("City not found.");
+                }
+                
+                const lat = geoData[0].lat;
+                const lon = geoData[0].lon;
+                log(`Coordinates: ${lat}, ${lon}`);
+
+                // 2. Get OSM Data (Radius 2km)
+                // Drive network only
+                log("Fetching infrastructure data (Radius 2km)...");
+                const radius = 2000; 
+                const query = `
+                    [out:json];
+                    (
+                      way["highway"]
+                         ["highway"!~"footway|cycleway|path|service|track"]
+                         (around:${radius},${lat},${lon});
+                    );
+                    out body;
+                    >;
+                    out skel qt;
+                `;
+                
+                const osmRes = await fetch(OVERPASS_API, {
+                    method: 'POST',
+                    body: query
+                });
+                const osmData = await osmRes.json();
+                
+                // 3. Analyze Logic (Client-side)
+                log(`Analyzing ${osmData.elements.length} elements...`);
+                
+                let nodes = new Set();
+                let roadLength = 0;
+                
+                // Simple distance calc (Haversine approximation for speed)
+                const nodeMap = {};
+                
+                osmData.elements.forEach(el => {
+                    if (el.type === 'node') {
+                        nodeMap[el.id] = {lat: el.lat, lon: el.lon};
+                    }
+                });
+
+                osmData.elements.forEach(el => {
+                    if (el.type === 'way' && el.nodes) {
+                        // Count Intersections (simplified: unique nodes in ways)
+                        el.nodes.forEach(n => nodes.add(n));
+                        
+                        // Calc Length
+                        for(let i=0; i<el.nodes.length-1; i++) {
+                            const n1 = nodeMap[el.nodes[i]];
+                            const n2 = nodeMap[el.nodes[i+1]];
+                            if(n1 && n2) {
+                                roadLength += getDistance(n1.lat, n1.lon, n2.lat, n2.lon);
+                            }
+                        }
+                    }
+                });
+
+                const km = roadLength / 1000;
+                const count = nodes.size;
+                const score = roadLength / count; // m per node
+
+                // 4. Render Result
+                document.getElementById('val-road').innerText = km.toFixed(1) + " km";
+                document.getElementById('val-node').innerText = count.toLocaleString();
+                document.getElementById('val-score').innerText = score.toFixed(1);
+
+                // Verdict
+                const vBox = document.getElementById('verdict-box');
+                const vText = document.getElementById('verdict-text');
+                const vDesc = document.getElementById('verdict-desc');
+                
+                let status = "";
+                if (score > 200) {
+                    vBox.classList.add("critical");
+                    vText.innerText = "CRITICAL";
+                    vDesc.innerText = "インフラ維持困難：拡散しすぎた都市";
+                    status = "【危険】";
+                } else if (score < 120) {
+                    vBox.classList.add("safe");
+                    vText.innerText = "SUSTAINABLE";
+                    vDesc.innerText = "高効率：コンパクトな都市構造";
+                    status = "【優秀】";
+                } else {
+                    vBox.classList.add("warning");
+                    vText.innerText = "WARNING";
+                    vDesc.innerText = "注意：郊外化・スプロールの兆候";
+                    status = "【注意】";
+                }
+
+                // Tweet Link
+                const tweet = `【SBCM都市監査】\n📍 ${city} のインフラ効率\n\n🛣️ 維持負担: ${score.toFixed(1)}m/node\n⚖️ 判定: ${status}\n\nあなたの街もチェック↓\n#SBCM #DistortionMap`;
+                document.getElementById('tweet-btn').href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweet)}`;
+
+                log("Audit Complete.");
+
+            } catch (e) {
+                log("ERROR: " + e.message);
+                alert("エラー: データの取得に失敗しました。");
+            } finally {
+                btn.disabled = false; btn.innerText = "SCAN";
+            }
+        }
+
+        // Helper: Distance between coords (meters)
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // metres
+            const φ1 = lat1 * Math.PI/180;
+            const φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2-lat1) * Math.PI/180;
+            const Δλ = (lon2-lon1) * Math.PI/180;
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+    </script>
+</body>
+</html>
