@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SBCM FIELD SCANNER v3</title>
+    <title>SBCM FIELD SCANNER v3.1</title>
     
     <!-- Fonts & Map -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -54,14 +54,14 @@
         /* MAP VIEWER */
         #map-viewer {
             display: none; position: relative;
-            width: 100%; height: 500px; /* Taller for text */
+            width: 100%; height: 500px;
             border: 1px solid var(--cyan);
             border-radius: 8px; overflow: hidden; margin-top: 20px;
         }
         #map { width: 100%; height: 100%; background: #222; z-index: 1; }
         #field-canvas { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
 
-        /* ANALYSIS BOX (NEW!) */
+        /* ANALYSIS BOX */
         #analysis-box {
             position: absolute; bottom: 0; left: 0; right: 0; z-index: 10;
             background: rgba(0,0,0,0.9); border-top: 2px solid var(--cyan);
@@ -229,8 +229,6 @@
                 
                 resizeCanvas();
                 drawVectorField();
-                
-                // Calculate and Show Analysis
                 analyzeData(osmElements);
 
             } catch(err) { console.log("Fetch error"); } 
@@ -240,7 +238,7 @@
             }
         }
 
-        // 3. ANALYSIS LOGIC (AI AUDITOR)
+        // 3. ANALYSIS LOGIC (AI AUDITOR) - FIXED
         function analyzeData(elements) {
             let nodes = 0, ways = 0;
             elements.forEach(e => {
@@ -248,15 +246,30 @@
                 if(e.type === 'way') ways++;
             });
 
-            // Calculate Burden Score (Mock)
-            // Low score = High Density (Good)
-            // High score = Low Density (Bad)
-            const score = nodes > 0 ? (ways * 50) / nodes : 999;
+            // 【密度による足切りロジック】
+            // 要素数（密度）が低すぎる場合は、効率計算をするまでもなく「過疎（CRITICAL）」とする。
+            // これにより、曲がりくねった山道（Node多、Way少、全体数少）を高効率と誤認するバグを防ぐ。
+            const totalDensity = nodes + ways;
             
             let type = "SAFE";
-            if(score > 80) type = "WARN";
-            if(score > 150) type = "CRITICAL";
-            if(nodes < 10) type = "VOID";
+            let score = 0;
+
+            if (totalDensity < 50) {
+                // スカスカすぎる = 経済活動なし
+                type = "VOID";
+                score = 999; 
+            } else if (totalDensity < 250) {
+                // 密度が低い = 維持コスト増
+                type = "CRITICAL";
+                score = 500;
+            } else {
+                // 十分な密度がある場合のみ、道路網の効率性（Score）を計算
+                // Node（交差点）に対してWay（道路長）が長すぎる＝効率が悪い
+                score = (ways * 50) / (nodes || 1); 
+                
+                if(score > 30) type = "WARN";
+                if(score > 60) type = "CRITICAL"; 
+            }
 
             updateAnalysis(type, score, nodes);
         }
@@ -328,6 +341,7 @@
             for (let x = 1; x < cols - 1; x++) {
                 for (let y = 1; y < rows - 1; y++) {
                     const density = grid[x][y];
+                    // Gradient Calculation
                     const dx = (grid[x-1][y] - grid[x+1][y]) * 5;
                     const dy = (grid[x][y-1] - grid[x][y+1]) * 5;
                     
