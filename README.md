@@ -19,7 +19,7 @@
 
 |デモ(柏市)|
 |:---:|
-|![](images/demo.jpg)|
+|![](images/demo_kashiwa.jpg)|
 ---
 
 ## 📐 The Logic (SBCM Audit v3.0)
