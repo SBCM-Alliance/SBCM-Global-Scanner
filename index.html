@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SBCM FIELD SCANNER v3.1</title>
+    <title>SBCM FIELD SCANNER v3.2</title>
     
     <!-- Fonts & Map -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -184,7 +184,6 @@
             map.on('resize', resizeCanvas);
         };
 
-        // 1. JUMP
         async function jumpTo(city) {
             if(!city) return;
             document.getElementById('map-viewer').style.display = 'block';
@@ -201,7 +200,6 @@
             } catch(e) { alert("Geo Error"); }
         }
 
-        // 2. FETCH
         function onMapMove() {
             const zoom = map.getZoom();
             if(zoom < 13) {
@@ -216,7 +214,7 @@
             if(isFetching) return;
             isFetching = true;
             document.getElementById('mini-loader').style.display = 'flex';
-            document.getElementById('analysis-box').classList.remove('visible'); // Hide during fetch
+            document.getElementById('analysis-box').classList.remove('visible'); 
 
             const b = map.getBounds();
             document.getElementById('live-coords').innerText = `LAT:${b.getNorth().toFixed(2)} LON:${b.getEast().toFixed(2)}`;
@@ -238,7 +236,7 @@
             }
         }
 
-        // 3. ANALYSIS LOGIC (AI AUDITOR) - FIXED
+        // --- FIXED LOGIC ---
         function analyzeData(elements) {
             let nodes = 0, ways = 0;
             elements.forEach(e => {
@@ -246,32 +244,26 @@
                 if(e.type === 'way') ways++;
             });
 
-            // 【密度による足切りロジック】
-            // 要素数（密度）が低すぎる場合は、効率計算をするまでもなく「過疎（CRITICAL）」とする。
-            // これにより、曲がりくねった山道（Node多、Way少、全体数少）を高効率と誤認するバグを防ぐ。
             const totalDensity = nodes + ways;
             
+            // Base Score: (Ways / Nodes) -> Low is good
+            let rawScore = (ways * 50) / (nodes || 1); 
+            
+            // PENALTY FACTOR (Soft Logic)
+            // 密度が低いほど、スコアを悪化させる係数を掛ける
+            // 密度200未満ならペナルティ開始、密度20未満なら10倍のペナルティ
+            let penalty = 1.0;
+            if (totalDensity < 200) penalty = 200 / (totalDensity || 1);
+            if (penalty > 10) penalty = 10; // Cap penalty
+
+            const finalScore = rawScore * penalty;
+            
             let type = "SAFE";
-            let score = 0;
+            if (finalScore > 50) type = "WARN";
+            if (finalScore > 100) type = "CRITICAL";
+            if (totalDensity < 10) type = "VOID"; // ほぼ無
 
-            if (totalDensity < 50) {
-                // スカスカすぎる = 経済活動なし
-                type = "VOID";
-                score = 999; 
-            } else if (totalDensity < 250) {
-                // 密度が低い = 維持コスト増
-                type = "CRITICAL";
-                score = 500;
-            } else {
-                // 十分な密度がある場合のみ、道路網の効率性（Score）を計算
-                // Node（交差点）に対してWay（道路長）が長すぎる＝効率が悪い
-                score = (ways * 50) / (nodes || 1); 
-                
-                if(score > 30) type = "WARN";
-                if(score > 60) type = "CRITICAL"; 
-            }
-
-            updateAnalysis(type, score, nodes);
+            updateAnalysis(type, finalScore, nodes);
         }
 
         function updateAnalysis(type, score, nodes) {
@@ -291,28 +283,27 @@
             }
 
             if (type === "SAFE") {
-                txt.innerHTML = `✅ <b>高密度・自律循環型</b><br>インフラ効率は極めて良好です。富のベクトルはエリア内で複雑に循環しており、外部への漏出は最小限です。`;
+                txt.innerHTML = `✅ <b>自律循環エリア</b><br>インフラ密度と効率のバランスが良好です。富のベクトルは安定して循環しています。`;
                 tag.className = "analysis-tag tag-safe"; tag.innerText = "EXCELLENT";
                 box.style.borderTopColor = "var(--accent)";
             } 
             else if (type === "WARN") {
-                txt.innerHTML = `⚠️ <b>効率低下の兆候</b><br>インフラ密度が分散し始めています。ベクトルの一部が幹線道路へ流出し、ストロー効果の初期段階が見られます。`;
+                txt.innerHTML = `⚠️ <b>効率低下エリア</b><br>密度に対して道路網が過剰です。維持コストの増大が懸念されます。`;
                 tag.className = "analysis-tag tag-warn"; tag.innerText = "WARNING";
                 box.style.borderTopColor = "orange";
             }
             else if (type === "CRITICAL") {
-                txt.innerHTML = `🚨 <b>構造的欠陥・高負荷</b><br>インフラ維持コストが限界を超えています。ベクトルは「一本道」に吸い寄せられ、富がエリア外へ急速に流出しています。`;
+                txt.innerHTML = `🚨 <b>維持困難エリア</b><br>低密度かつ高負荷です。インフラが薄く引き伸ばされ、富が急速に流出しています。`;
                 tag.className = "analysis-tag tag-danger"; tag.innerText = "CRITICAL";
                 box.style.borderTopColor = "var(--warn)";
             }
             else if (type === "VOID") {
-                txt.innerHTML = `🌌 <b>経済空白地帯</b><br>経済活動（ノード）が検知されません。維持コストのみが発生する「負の資産」となっている可能性があります。`;
+                txt.innerHTML = `🌌 <b>経済空白地帯</b><br>有意な経済活動（ノード）が検知されません。完全な過疎、または自然保護区です。`;
                 tag.className = "analysis-tag tag-danger"; tag.innerText = "VOID";
                 box.style.borderTopColor = "#555";
             }
         }
 
-        // 4. DRAWING
         function resizeCanvas() {
             const wrap = document.getElementById('map-viewer');
             canvas.width = wrap.clientWidth;
@@ -345,10 +336,14 @@
                     const dx = (grid[x-1][y] - grid[x+1][y]) * 5;
                     const dy = (grid[x][y-1] - grid[x][y+1]) * 5;
                     
+                    // Heatmap (Red = Void/Leakage)
                     if(density < 1) {
                         ctx.fillStyle = `rgba(255, 0, 85, 0.15)`;
                         ctx.fillRect(x*gridSize, y*gridSize, gridSize, gridSize);
                     }
+
+                    // Vector Arrows (Flow)
+                    // High sensitivity for low density areas
                     const px = x * gridSize + gridSize/2;
                     const py = y * gridSize + gridSize/2;
                     drawArrow(ctx, px, py, dx, dy);
@@ -358,19 +353,22 @@
 
         function drawArrow(ctx, x, y, dx, dy) {
             const len = Math.sqrt(dx*dx + dy*dy);
-            if(len < 2) return;
+            if(len < 0.5) return; // Increased sensitivity (was 2)
+            
             const angle = Math.atan2(dy, dx);
-            const size = Math.min(len, 25);
+            const size = Math.min(len * 2, 30); // Boost visual size
 
             ctx.save();
             ctx.translate(x, y);
             ctx.rotate(angle);
             ctx.strokeStyle = "rgba(0, 255, 255, 0.6)";
             ctx.lineWidth = 1.5;
+            
             ctx.beginPath();
             ctx.moveTo(-size/2, 0);
             ctx.lineTo(size/2, 0);
             ctx.stroke();
+
             ctx.beginPath();
             ctx.moveTo(size/2, 0);
             ctx.lineTo(size/2-4, -3);
