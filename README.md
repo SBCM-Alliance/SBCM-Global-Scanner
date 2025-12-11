@@ -17,9 +17,9 @@
 **👉 [Launch Distortion Map](https://sbcm-alliance.github.io/distortion-map/)**
 *(PC / Smartphone Browser)*
 
-|柏市|港区|夕張市|
-|:---:|:---:|:---:|
-|![](images/kashiwa.jpg)|![](images/tkminato.jpg)|![](images/yuubari.jpg)|
+|デモ(港区)|
+|:---:|
+|![](images/demo.jpg)|
 ---
 
 ## 📐 The Logic (SBCM Audit v3.0)
