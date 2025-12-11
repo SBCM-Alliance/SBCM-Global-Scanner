@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SBCM FIELD SCANNER v2</title>
+    <title>SBCM FIELD SCANNER v3</title>
     
     <!-- Fonts & Map -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -24,7 +24,7 @@
             padding: 20px; line-height: 1.5; min-height: 100vh;
         }
         
-        .container { max-width: 600px; margin: 0 auto; padding-bottom: 50px; }
+        .container { max-width: 600px; margin: 0 auto; padding-bottom: 80px; }
         
         /* HEADER */
         header { text-align: center; margin-bottom: 20px; }
@@ -54,33 +54,40 @@
         /* MAP VIEWER */
         #map-viewer {
             display: none; position: relative;
-            width: 100%; height: 450px;
+            width: 100%; height: 500px; /* Taller for text */
             border: 1px solid var(--cyan);
             border-radius: 8px; overflow: hidden; margin-top: 20px;
         }
         #map { width: 100%; height: 100%; background: #222; z-index: 1; }
         #field-canvas { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
 
+        /* ANALYSIS BOX (NEW!) */
+        #analysis-box {
+            position: absolute; bottom: 0; left: 0; right: 0; z-index: 10;
+            background: rgba(0,0,0,0.9); border-top: 2px solid var(--cyan);
+            padding: 15px; font-size: 0.8rem;
+            transform: translateY(100%); transition: transform 0.3s;
+        }
+        #analysis-box.visible { transform: translateY(0); }
+        
+        .analysis-title { color: var(--sub); font-size: 0.7rem; margin-bottom: 5px; display: flex; justify-content: space-between; }
+        .analysis-text { color: #fff; line-height: 1.4; margin-bottom: 10px; }
+        .analysis-tag { display: inline-block; padding: 2px 6px; border-radius: 2px; font-weight: bold; font-size: 0.7rem; color: #000; }
+        
+        .tag-safe { background: var(--accent); }
+        .tag-warn { background: orange; }
+        .tag-danger { background: var(--warn); color: #fff; }
+
         /* STATUS OVERLAY */
         .map-status-bar {
             position: absolute; top: 10px; left: 10px; right: 10px; z-index: 3;
-            display: flex; justify-content: space-between;
-            pointer-events: none;
+            display: flex; justify-content: space-between; pointer-events: none;
         }
         .status-badge {
             background: rgba(0,0,0,0.8); padding: 5px 10px; border: 1px solid #333;
             font-size: 0.7rem; color: var(--cyan); backdrop-filter: blur(2px);
         }
-        .alert-badge { color: var(--warn); border-color: var(--warn); display: none; }
-
-        /* LEGEND overlay */
-        .map-legend {
-            position: absolute; bottom: 10px; right: 10px; z-index: 3;
-            background: rgba(0,0,0,0.8); padding: 8px; border-radius: 4px;
-            font-size: 0.6rem; color: #aaa; pointer-events: none;
-        }
-        .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 3px; }
-
+        
         /* LOADER */
         #mini-loader {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -134,7 +141,6 @@
             <!-- Overlays -->
             <div class="map-status-bar">
                 <div class="status-badge" id="live-coords">READY</div>
-                <div class="status-badge alert-badge" id="zoom-alert">ZOOM IN TO SCAN</div>
             </div>
             
             <div id="mini-loader">
@@ -142,9 +148,16 @@
                 <div style="font-size:0.7rem; color:#fff;">FETCHING DATA...</div>
             </div>
 
-            <div class="map-legend">
-                <div><span class="dot" style="background:cyan;"></span>FLOW (循環)</div>
-                <div><span class="dot" style="background:rgba(255,0,85,0.8);"></span>LEAKAGE (漏出)</div>
+            <!-- ANALYSIS POPUP -->
+            <div id="analysis-box">
+                <div class="analysis-title">
+                    <span>AI AUDITOR LOG</span>
+                    <span id="ai-score">SCORE: ---</span>
+                </div>
+                <div id="ai-text" class="analysis-text">
+                    Scanning field data...
+                </div>
+                <div id="ai-tag" class="analysis-tag tag-safe">ANALYZING</div>
             </div>
         </div>
     </div>
@@ -156,7 +169,6 @@
         let isFetching = false;
 
         window.onload = () => {
-            // Init Map (Dark Mode)
             map = L.map('map', { zoomControl: false }).setView([35.6895, 139.6917], 13);
             L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
                 attribution: '&copy; CartoDB',
@@ -167,18 +179,16 @@
             canvas = document.getElementById('field-canvas');
             ctx = canvas.getContext('2d');
 
-            // Event Listeners for Dynamic Loading
             map.on('moveend', onMapMove);
             map.on('zoomend', onMapMove);
             map.on('resize', resizeCanvas);
         };
 
-        // 1. JUMP TO CITY (Geocoding)
+        // 1. JUMP
         async function jumpTo(city) {
             if(!city) return;
             document.getElementById('map-viewer').style.display = 'block';
-            map.invalidateSize(); // Fix layout
-
+            map.invalidateSize(); 
             try {
                 const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)}&limit=1`;
                 const res = await fetch(url);
@@ -186,27 +196,19 @@
                 if(data.length > 0) {
                     const lat = parseFloat(data[0].lat);
                     const lon = parseFloat(data[0].lon);
-                    map.setView([lat, lon], 14); // Set nice zoom level
-                    // onMapMove will trigger automatically
-                } else {
-                    alert("City not found");
-                }
+                    map.setView([lat, lon], 14);
+                } else { alert("City not found"); }
             } catch(e) { alert("Geo Error"); }
         }
 
-        // 2. DYNAMIC FETCH LOGIC
+        // 2. FETCH
         function onMapMove() {
             const zoom = map.getZoom();
-            
-            // Safety Guard: Don't fetch if zoomed out too far (Server Load)
             if(zoom < 13) {
-                document.getElementById('zoom-alert').style.display = 'block';
-                ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear visualization
+                updateAnalysis("ZOOM_OUT", 0);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
                 return;
-            } else {
-                document.getElementById('zoom-alert').style.display = 'none';
             }
-
             fetchViewportData();
         }
 
@@ -214,35 +216,90 @@
             if(isFetching) return;
             isFetching = true;
             document.getElementById('mini-loader').style.display = 'flex';
+            document.getElementById('analysis-box').classList.remove('visible'); // Hide during fetch
 
-            const bounds = map.getBounds();
-            const s = bounds.getSouth();
-            const w = bounds.getWest();
-            const n = bounds.getNorth();
-            const e = bounds.getEast();
-
-            // Status Update
-            document.getElementById('live-coords').innerText = `LAT:${n.toFixed(2)} LON:${e.toFixed(2)}`;
+            const b = map.getBounds();
+            document.getElementById('live-coords').innerText = `LAT:${b.getNorth().toFixed(2)} LON:${b.getEast().toFixed(2)}`;
 
             try {
-                // Fetch nodes and ways within current view (bbox)
-                const query = `[out:json][timeout:10];(way["highway"](${s},${w},${n},${e});node(w););out skel;`;
+                const query = `[out:json][timeout:10];(way["highway"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});node(w););out skel;`;
                 const res = await fetch(OVERPASS_API, { method: 'POST', body: query });
                 const data = await res.json();
                 osmElements = data.elements;
                 
                 resizeCanvas();
                 drawVectorField();
+                
+                // Calculate and Show Analysis
+                analyzeData(osmElements);
 
-            } catch(err) {
-                console.log("Fetch aborted or error (Panning too fast?)");
-            } finally {
+            } catch(err) { console.log("Fetch error"); } 
+            finally {
                 isFetching = false;
                 document.getElementById('mini-loader').style.display = 'none';
             }
         }
 
-        // 3. DRAW FIELD (Client Side Physics)
+        // 3. ANALYSIS LOGIC (AI AUDITOR)
+        function analyzeData(elements) {
+            let nodes = 0, ways = 0;
+            elements.forEach(e => {
+                if(e.type === 'node') nodes++;
+                if(e.type === 'way') ways++;
+            });
+
+            // Calculate Burden Score (Mock)
+            // Low score = High Density (Good)
+            // High score = Low Density (Bad)
+            const score = nodes > 0 ? (ways * 50) / nodes : 999;
+            
+            let type = "SAFE";
+            if(score > 80) type = "WARN";
+            if(score > 150) type = "CRITICAL";
+            if(nodes < 10) type = "VOID";
+
+            updateAnalysis(type, score, nodes);
+        }
+
+        function updateAnalysis(type, score, nodes) {
+            const box = document.getElementById('analysis-box');
+            const txt = document.getElementById('ai-text');
+            const tag = document.getElementById('ai-tag');
+            const sc = document.getElementById('ai-score');
+
+            sc.innerText = `BURDEN: ${score.toFixed(1)}`;
+            box.classList.add('visible');
+
+            if (type === "ZOOM_OUT") {
+                txt.innerHTML = "広域スキャン待機中。<br>詳細分析のため、地図を拡大してください。";
+                tag.className = "analysis-tag"; 
+                tag.style.background = "#666"; tag.innerText = "STANDBY";
+                return;
+            }
+
+            if (type === "SAFE") {
+                txt.innerHTML = `✅ <b>高密度・自律循環型</b><br>インフラ効率は極めて良好です。富のベクトルはエリア内で複雑に循環しており、外部への漏出は最小限です。`;
+                tag.className = "analysis-tag tag-safe"; tag.innerText = "EXCELLENT";
+                box.style.borderTopColor = "var(--accent)";
+            } 
+            else if (type === "WARN") {
+                txt.innerHTML = `⚠️ <b>効率低下の兆候</b><br>インフラ密度が分散し始めています。ベクトルの一部が幹線道路へ流出し、ストロー効果の初期段階が見られます。`;
+                tag.className = "analysis-tag tag-warn"; tag.innerText = "WARNING";
+                box.style.borderTopColor = "orange";
+            }
+            else if (type === "CRITICAL") {
+                txt.innerHTML = `🚨 <b>構造的欠陥・高負荷</b><br>インフラ維持コストが限界を超えています。ベクトルは「一本道」に吸い寄せられ、富がエリア外へ急速に流出しています。`;
+                tag.className = "analysis-tag tag-danger"; tag.innerText = "CRITICAL";
+                box.style.borderTopColor = "var(--warn)";
+            }
+            else if (type === "VOID") {
+                txt.innerHTML = `🌌 <b>経済空白地帯</b><br>経済活動（ノード）が検知されません。維持コストのみが発生する「負の資産」となっている可能性があります。`;
+                tag.className = "analysis-tag tag-danger"; tag.innerText = "VOID";
+                box.style.borderTopColor = "#555";
+            }
+        }
+
+        // 4. DRAWING
         function resizeCanvas() {
             const wrap = document.getElementById('map-viewer');
             canvas.width = wrap.clientWidth;
@@ -258,12 +315,9 @@
             const rows = Math.ceil(canvas.height / gridSize);
             const grid = Array(cols).fill().map(() => Array(rows).fill(0));
 
-            // Map Nodes to Screen Grid
             const bounds = map.getBounds();
             osmElements.forEach(el => {
                 if(el.type === 'node') {
-                    // Check if node is roughly in view to avoid projection errors
-                    // (Leaflet handles projection but checking bounds saves math)
                     const p = map.latLngToContainerPoint([el.lat, el.lon]);
                     const x = Math.floor(p.x / gridSize);
                     const y = Math.floor(p.y / gridSize);
@@ -271,22 +325,16 @@
                 }
             });
 
-            // Physics Rendering
             for (let x = 1; x < cols - 1; x++) {
                 for (let y = 1; y < rows - 1; y++) {
                     const density = grid[x][y];
-                    
-                    // Gradient Calculation
                     const dx = (grid[x-1][y] - grid[x+1][y]) * 5;
                     const dy = (grid[x][y-1] - grid[x][y+1]) * 5;
                     
-                    // Heatmap (Red = Void/Leakage)
                     if(density < 1) {
-                        ctx.fillStyle = `rgba(255, 0, 85, 0.1)`;
+                        ctx.fillStyle = `rgba(255, 0, 85, 0.15)`;
                         ctx.fillRect(x*gridSize, y*gridSize, gridSize, gridSize);
                     }
-
-                    // Vector Arrows (Flow)
                     const px = x * gridSize + gridSize/2;
                     const py = y * gridSize + gridSize/2;
                     drawArrow(ctx, px, py, dx, dy);
@@ -296,22 +344,19 @@
 
         function drawArrow(ctx, x, y, dx, dy) {
             const len = Math.sqrt(dx*dx + dy*dy);
-            if(len < 2) return; // No significant flow
-            
+            if(len < 2) return;
             const angle = Math.atan2(dy, dx);
             const size = Math.min(len, 25);
 
             ctx.save();
             ctx.translate(x, y);
             ctx.rotate(angle);
-            ctx.strokeStyle = "rgba(0, 255, 255, 0.5)";
+            ctx.strokeStyle = "rgba(0, 255, 255, 0.6)";
             ctx.lineWidth = 1.5;
-            
             ctx.beginPath();
             ctx.moveTo(-size/2, 0);
             ctx.lineTo(size/2, 0);
             ctx.stroke();
-
             ctx.beginPath();
             ctx.moveTo(size/2, 0);
             ctx.lineTo(size/2-4, -3);
