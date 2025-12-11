@@ -2,32 +2,33 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JAPAN DISTORTION MAP</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SBCM FIELD SCANNER v2</title>
     
-    <!-- Fonts -->
+    <!-- Fonts & Map -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
         :root {
             --bg: #050505; --panel: #111; --text: #e0e0e0;
-            --accent: #00ff41; --warn: #ff0055; --sub: #666;
+            --accent: #00ff41; --warn: #ff0055; --sub: #666; --cyan: #00ffff;
         }
         * { box-sizing: border-box; }
         
         body { 
             margin: 0; background: var(--bg); color: var(--text); 
-            font-family: 'JetBrains Mono', monospace, sans-serif; /* Fallback added */
-            padding: 20px; line-height: 1.5; 
-            /* Fixed: 画面が消えるのを防ぐためスクロール許可 */
-            min-height: 100vh; overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace, sans-serif;
+            padding: 20px; line-height: 1.5; min-height: 100vh;
         }
         
-        .container { max-width: 500px; margin: 0 auto; padding-bottom: 50px; }
+        .container { max-width: 600px; margin: 0 auto; padding-bottom: 50px; }
         
+        /* HEADER */
         header { text-align: center; margin-bottom: 20px; }
-        h1 { margin: 0; font-size: 1.4rem; letter-spacing: 2px; color: #fff; }
+        h1 { margin: 0; font-size: 1.2rem; letter-spacing: 2px; color: #fff; }
         .subtitle { font-size: 0.7rem; color: var(--sub); }
 
         /* KEYPAD */
@@ -36,227 +37,288 @@
             margin-bottom: 15px;
         }
         .key-btn {
-            aspect-ratio: 1.2; background: #000; border: 1px solid #333; color: #fff;
+            aspect-ratio: 1.3; background: #000; border: 1px solid #333; color: #fff;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            cursor: pointer; border-radius: 4px;
+            cursor: pointer; border-radius: 4px; transition: 0.1s;
         }
-        .key-btn:active { background: #222; border-color: var(--accent); }
+        .key-btn:active { background: #222; border-color: var(--cyan); }
         .key-label { font-size: 0.85rem; font-weight: bold; }
         .key-sub { font-size: 0.6rem; color: #666; }
 
-        /* INPUT */
+        /* MANUAL INPUT */
         .hidden { display: none; }
         #manual-input { display: flex; gap: 5px; margin-bottom: 15px; }
-        input { flex: 1; background: #000; border: 1px solid #333; color: #fff; padding: 10px; }
-        button { background: #fff; color: #000; border: none; padding: 0 15px; font-weight: bold; }
+        input { flex: 1; background: #000; border: 1px solid #333; color: #fff; padding: 10px; font-family: inherit; }
+        button { background: var(--text); color: #000; border: none; padding: 0 15px; font-weight: bold; cursor: pointer; }
 
-        /* RESULT CARD */
-        #result-card { 
-            display: none; background: var(--panel); border: 1px solid #333; 
-            padding: 20px; border-radius: 8px; margin-top: 15px;
+        /* MAP VIEWER */
+        #map-viewer {
+            display: none; position: relative;
+            width: 100%; height: 450px;
+            border: 1px solid var(--cyan);
+            border-radius: 8px; overflow: hidden; margin-top: 20px;
         }
-        
-        /* VERDICT */
-        .verdict-box { 
-            text-align: center; margin-bottom: 20px; padding: 15px 10px; 
-            border: 2px solid #333; 
-        }
-        .verdict-main { font-size: 2rem; font-weight: bold; margin: 5px 0; }
-        .verdict-desc { font-size: 0.8rem; }
+        #map { width: 100%; height: 100%; background: #222; z-index: 1; }
+        #field-canvas { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
 
-        /* STATS */
-        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-        .stat-item { background: #000; padding: 10px; border: 1px solid #333; text-align: center; }
-        .stat-label { font-size: 0.6rem; color: var(--sub); display: block; }
-        .stat-val { font-size: 1.1rem; font-weight: bold; }
+        /* STATUS OVERLAY */
+        .map-status-bar {
+            position: absolute; top: 10px; left: 10px; right: 10px; z-index: 3;
+            display: flex; justify-content: space-between;
+            pointer-events: none;
+        }
+        .status-badge {
+            background: rgba(0,0,0,0.8); padding: 5px 10px; border: 1px solid #333;
+            font-size: 0.7rem; color: var(--cyan); backdrop-filter: blur(2px);
+        }
+        .alert-badge { color: var(--warn); border-color: var(--warn); display: none; }
 
-        /* STATUS COLORS */
-        .safe { color: var(--accent); border-color: var(--accent); }
-        .critical { color: var(--warn); border-color: var(--warn); }
-        .warning { color: orange; border-color: orange; }
-        
-        /* TWEET */
-        #tweet-btn {
-            display: block; text-align: center; color: #fff; text-decoration: none; 
-            border: 1px solid #fff; padding: 10px; font-weight: bold; font-size: 0.9rem;
+        /* LEGEND overlay */
+        .map-legend {
+            position: absolute; bottom: 10px; right: 10px; z-index: 3;
+            background: rgba(0,0,0,0.8); padding: 8px; border-radius: 4px;
+            font-size: 0.6rem; color: #aaa; pointer-events: none;
         }
-        
-        /* LOADING OVERLAY */
-        #loading-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); z-index: 99; align-items: center; justify-content: center;
-            color: var(--accent); font-weight: bold; font-family: monospace;
+        .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 3px; }
+
+        /* LOADER */
+        #mini-loader {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 4; display: none; flex-direction: column; align-items: center;
+            background: rgba(0,0,0,0.7); padding: 20px; border-radius: 8px;
         }
+        .spinner {
+            width: 24px; height: 24px; border: 2px solid #333; border-top: 2px solid var(--cyan);
+            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 5px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div id="loading-overlay">SCANNING...</div>
-
     <div class="container">
         <header>
-            <h1>DISTORTION MAP</h1>
-            <div class="subtitle">SELECT TARGET SECTOR</div>
+            <h1>SBCM FIELD SCANNER</h1>
+            <div class="subtitle">REAL-TIME DYNAMIC ANALYSIS</div>
         </header>
 
         <!-- KEYPAD -->
         <div class="keypad">
-            <div class="key-btn" onclick="scan('豊島区')"><span class="key-label">豊島区</span><span class="key-sub">TKYO</span></div>
-            <div class="key-btn" onclick="scan('港区')"><span class="key-label">港区</span><span class="key-sub">TKYO</span></div>
-            <div class="key-btn" onclick="scan('柏市')"><span class="key-label">柏市</span><span class="key-sub">CHIBA</span></div>
+            <div class="key-btn" onclick="jumpTo('豊島区')"><span class="key-label">豊島区</span><span class="key-sub">TKYO</span></div>
+            <div class="key-btn" onclick="jumpTo('港区')"><span class="key-label">港区</span><span class="key-sub">TKYO</span></div>
+            <div class="key-btn" onclick="jumpTo('柏市')"><span class="key-label">柏市</span><span class="key-sub">CHIBA</span></div>
             
-            <div class="key-btn" onclick="scan('京都市')"><span class="key-label">京都市</span><span class="key-sub">KYOTO</span></div>
-            <div class="key-btn" onclick="scan('大阪市')"><span class="key-label">大阪市</span><span class="key-sub">OSAKA</span></div>
-            <div class="key-btn" onclick="scan('神戸市')"><span class="key-label">神戸市</span><span class="key-sub">HYOGO</span></div>
+            <div class="key-btn" onclick="jumpTo('京都市')"><span class="key-label">京都市</span><span class="key-sub">KYOTO</span></div>
+            <div class="key-btn" onclick="jumpTo('大阪市')"><span class="key-label">大阪市</span><span class="key-sub">OSAKA</span></div>
+            <div class="key-btn" onclick="jumpTo('神戸市')"><span class="key-label">神戸市</span><span class="key-sub">HYOGO</span></div>
             
-            <div class="key-btn" onclick="scan('福岡市')"><span class="key-label">福岡市</span><span class="key-sub">FUK</span></div>
-            <div class="key-btn" onclick="scan('夕張市')"><span class="key-label">夕張市</span><span class="key-sub">HKD</span></div>
-            <div class="key-btn" onclick="scan('白糠町')"><span class="key-label">白糠町</span><span class="key-sub">HKD</span></div>
+            <div class="key-btn" onclick="jumpTo('福岡市')"><span class="key-label">福岡市</span><span class="key-sub">FUK</span></div>
+            <div class="key-btn" onclick="jumpTo('夕張市')"><span class="key-label">夕張市</span><span class="key-sub">HKD</span></div>
+            <div class="key-btn" onclick="jumpTo('白糠町')"><span class="key-label">白糠町</span><span class="key-sub">HKD</span></div>
         </div>
 
-        <!-- MANUAL INPUT -->
+        <!-- MANUAL -->
         <div style="text-align:center; margin-bottom:10px;">
-            <span onclick="document.getElementById('manual-input').classList.toggle('hidden')" style="cursor:pointer; color:#666; font-size:0.7rem;">▼ MANUAL INPUT</span>
+            <span onclick="document.getElementById('manual-input').classList.toggle('hidden')" style="cursor:pointer; color:#666; font-size:0.7rem;">▼ MANUAL SEARCH</span>
         </div>
         <div id="manual-input" class="hidden">
             <input type="text" id="city-in" placeholder="City Name">
-            <button onclick="scan(document.getElementById('city-in').value)">GO</button>
+            <button onclick="jumpTo(document.getElementById('city-in').value)">GO</button>
         </div>
 
-        <!-- RESULT -->
-        <div id="result-card">
-            <div style="text-align:right; margin-bottom:5px; color:#fff; font-weight:bold;" id="target-name">TARGET</div>
+        <!-- MAP -->
+        <div id="map-viewer">
+            <div id="map"></div>
+            <canvas id="field-canvas"></canvas>
             
-            <div id="verdict-box" class="verdict-box">
-                <div class="verdict-title">STATUS</div>
-                <div id="verdict-text" class="verdict-main">---</div>
-                <div id="verdict-desc" class="verdict-desc">---</div>
+            <!-- Overlays -->
+            <div class="map-status-bar">
+                <div class="status-badge" id="live-coords">READY</div>
+                <div class="status-badge alert-badge" id="zoom-alert">ZOOM IN TO SCAN</div>
+            </div>
+            
+            <div id="mini-loader">
+                <div class="spinner"></div>
+                <div style="font-size:0.7rem; color:#fff;">FETCHING DATA...</div>
             </div>
 
-            <div class="stat-grid">
-                <div class="stat-item">
-                    <span class="stat-label">ROAD (3km)</span>
-                    <span id="val-road" class="stat-val">0.0 km</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">INTERSECTIONS</span>
-                    <span id="val-node" class="stat-val">0</span>
-                </div>
-                <div class="stat-item" style="grid-column: span 2;">
-                    <span class="stat-label">BURDEN SCORE (m/Node)</span>
-                    <span id="val-score" class="stat-val">0.0</span>
-                </div>
+            <div class="map-legend">
+                <div><span class="dot" style="background:cyan;"></span>FLOW (循環)</div>
+                <div><span class="dot" style="background:rgba(255,0,85,0.8);"></span>LEAKAGE (漏出)</div>
             </div>
-
-            <a id="tweet-btn" href="#" target="_blank"><i class="fab fa-x-twitter"></i> SHARE REPORT</a>
         </div>
     </div>
 
     <script>
         const OVERPASS_API = "https://overpass-api.de/api/interpreter";
+        let map, canvas, ctx;
+        let osmElements = [];
+        let isFetching = false;
 
-        async function scan(cityInput) {
-            if (!cityInput) return;
-            const city = cityInput.trim();
+        window.onload = () => {
+            // Init Map (Dark Mode)
+            map = L.map('map', { zoomControl: false }).setView([35.6895, 139.6917], 13);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; CartoDB',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(map);
 
-            // Loading
-            document.getElementById('loading-overlay').style.display = 'flex';
-            document.getElementById('result-card').style.display = 'none';
+            canvas = document.getElementById('field-canvas');
+            ctx = canvas.getContext('2d');
+
+            // Event Listeners for Dynamic Loading
+            map.on('moveend', onMapMove);
+            map.on('zoomend', onMapMove);
+            map.on('resize', resizeCanvas);
+        };
+
+        // 1. JUMP TO CITY (Geocoding)
+        async function jumpTo(city) {
+            if(!city) return;
+            document.getElementById('map-viewer').style.display = 'block';
+            map.invalidateSize(); // Fix layout
 
             try {
-                // 1. Get Coords (Nominatim)
-                // Fix: Removed 'User-Agent' header to prevent browser error. Added limit=1.
-                const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)}&limit=1`;
-                const geoRes = await fetch(nominatimUrl);
-                
-                // XML Error Check
-                const contentType = geoRes.headers.get("content-type");
-                if (contentType && contentType.indexOf("application/json") === -1) {
-                    throw new Error("API Busy (XML Response). Try again.");
-                }
-
-                const geoData = await geoRes.json();
-                if (!geoData.length) throw new Error("City not found.");
-                
-                const lat = geoData[0].lat;
-                const lon = geoData[0].lon;
-
-                // 2. OSM Data (Radius 3km)
-                const radius = 3000;
-                const query = `[out:json];(way["highway"]["highway"!~"footway|cycleway|path|service|track|steps"](around:${radius},${lat},${lon}););out body;>;out skel qt;`;
-                
-                const osmRes = await fetch(OVERPASS_API, { method: 'POST', body: query });
-                const osmData = await osmRes.json();
-
-                // 3. Analyze
-                let nodeUsage = {};
-                let roadLength = 0;
-                const nodeMap = {};
-
-                osmData.elements.forEach(el => {
-                    if (el.type === 'node') nodeMap[el.id] = {lat: el.lat, lon: el.lon};
-                });
-
-                osmData.elements.forEach(el => {
-                    if (el.type === 'way' && el.nodes) {
-                        el.nodes.forEach(n => nodeUsage[n] = (nodeUsage[n] || 0) + 1);
-                        for(let i=0; i<el.nodes.length-1; i++) {
-                            const n1 = nodeMap[el.nodes[i]];
-                            const n2 = nodeMap[el.nodes[i+1]];
-                            if(n1 && n2) roadLength += getDistance(n1.lat, n1.lon, n2.lat, n2.lon);
-                        }
-                    }
-                });
-
-                let intersections = 0;
-                for (let id in nodeUsage) if (nodeUsage[id] > 1) intersections++;
-
-                const km = roadLength / 1000;
-                const score = intersections > 0 ? roadLength / intersections : 9999;
-
-                // 4. Render
-                document.getElementById('target-name').innerText = city;
-                document.getElementById('val-road').innerText = km.toFixed(1) + " km";
-                document.getElementById('val-node').innerText = intersections.toLocaleString();
-                document.getElementById('val-score').innerText = score.toFixed(1);
-
-                const vBox = document.getElementById('verdict-box');
-                const vText = document.getElementById('verdict-text');
-                const vDesc = document.getElementById('verdict-desc');
-                
-                // Reset Classes
-                vBox.className = "verdict-box";
-                vText.className = "verdict-main";
-
-                let status = "";
-                if (score > 200) {
-                    vBox.classList.add("critical"); vText.classList.add("critical");
-                    vText.innerText = "CRITICAL"; vDesc.innerText = "維持困難：低密度・拡散型"; status = "【危険】";
-                } else if (score < 130) {
-                    vBox.classList.add("safe"); vText.classList.add("safe");
-                    vText.innerText = "SUSTAINABLE"; vDesc.innerText = "高効率：コンパクトシティ"; status = "【優秀】";
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)}&limit=1`;
+                const res = await fetch(url);
+                const data = await res.json();
+                if(data.length > 0) {
+                    const lat = parseFloat(data[0].lat);
+                    const lon = parseFloat(data[0].lon);
+                    map.setView([lat, lon], 14); // Set nice zoom level
+                    // onMapMove will trigger automatically
                 } else {
-                    vBox.classList.add("warning"); vText.classList.add("warning");
-                    vText.innerText = "WARNING"; vDesc.innerText = "注意：効率低下の兆候"; status = "【注意】";
+                    alert("City not found");
                 }
+            } catch(e) { alert("Geo Error"); }
+        }
 
-                const tweet = `【SBCM都市監査】\n📍 ${city} のインフラ効率\n\n🛣️ 負担指数: ${score.toFixed(1)}m/node\n⚖️ 判定: ${status}\n\n#SBCM #DistortionMap`;
-                document.getElementById('tweet-btn').href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweet)}`;
+        // 2. DYNAMIC FETCH LOGIC
+        function onMapMove() {
+            const zoom = map.getZoom();
+            
+            // Safety Guard: Don't fetch if zoomed out too far (Server Load)
+            if(zoom < 13) {
+                document.getElementById('zoom-alert').style.display = 'block';
+                ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear visualization
+                return;
+            } else {
+                document.getElementById('zoom-alert').style.display = 'none';
+            }
+
+            fetchViewportData();
+        }
+
+        async function fetchViewportData() {
+            if(isFetching) return;
+            isFetching = true;
+            document.getElementById('mini-loader').style.display = 'flex';
+
+            const bounds = map.getBounds();
+            const s = bounds.getSouth();
+            const w = bounds.getWest();
+            const n = bounds.getNorth();
+            const e = bounds.getEast();
+
+            // Status Update
+            document.getElementById('live-coords').innerText = `LAT:${n.toFixed(2)} LON:${e.toFixed(2)}`;
+
+            try {
+                // Fetch nodes and ways within current view (bbox)
+                const query = `[out:json][timeout:10];(way["highway"](${s},${w},${n},${e});node(w););out skel;`;
+                const res = await fetch(OVERPASS_API, { method: 'POST', body: query });
+                const data = await res.json();
+                osmElements = data.elements;
                 
-                document.getElementById('result-card').style.display = 'block';
+                resizeCanvas();
+                drawVectorField();
 
-            } catch (e) {
-                alert("Error: " + e.message);
+            } catch(err) {
+                console.log("Fetch aborted or error (Panning too fast?)");
             } finally {
-                document.getElementById('loading-overlay').style.display = 'none';
+                isFetching = false;
+                document.getElementById('mini-loader').style.display = 'none';
             }
         }
 
-        function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; const φ1 = lat1 * Math.PI/180; const φ2 = lat2 * Math.PI/180;
-            const Δφ = (lat2-lat1) * Math.PI/180; const Δλ = (lon2-lon1) * Math.PI/180;
-            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        // 3. DRAW FIELD (Client Side Physics)
+        function resizeCanvas() {
+            const wrap = document.getElementById('map-viewer');
+            canvas.width = wrap.clientWidth;
+            canvas.height = wrap.clientHeight;
+        }
+
+        function drawVectorField() {
+            if(!osmElements.length) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const gridSize = 40; 
+            const cols = Math.ceil(canvas.width / gridSize);
+            const rows = Math.ceil(canvas.height / gridSize);
+            const grid = Array(cols).fill().map(() => Array(rows).fill(0));
+
+            // Map Nodes to Screen Grid
+            const bounds = map.getBounds();
+            osmElements.forEach(el => {
+                if(el.type === 'node') {
+                    // Check if node is roughly in view to avoid projection errors
+                    // (Leaflet handles projection but checking bounds saves math)
+                    const p = map.latLngToContainerPoint([el.lat, el.lon]);
+                    const x = Math.floor(p.x / gridSize);
+                    const y = Math.floor(p.y / gridSize);
+                    if(x>=0 && x<cols && y>=0 && y<rows) grid[x][y]++;
+                }
+            });
+
+            // Physics Rendering
+            for (let x = 1; x < cols - 1; x++) {
+                for (let y = 1; y < rows - 1; y++) {
+                    const density = grid[x][y];
+                    
+                    // Gradient Calculation
+                    const dx = (grid[x-1][y] - grid[x+1][y]) * 5;
+                    const dy = (grid[x][y-1] - grid[x][y+1]) * 5;
+                    
+                    // Heatmap (Red = Void/Leakage)
+                    if(density < 1) {
+                        ctx.fillStyle = `rgba(255, 0, 85, 0.1)`;
+                        ctx.fillRect(x*gridSize, y*gridSize, gridSize, gridSize);
+                    }
+
+                    // Vector Arrows (Flow)
+                    const px = x * gridSize + gridSize/2;
+                    const py = y * gridSize + gridSize/2;
+                    drawArrow(ctx, px, py, dx, dy);
+                }
+            }
+        }
+
+        function drawArrow(ctx, x, y, dx, dy) {
+            const len = Math.sqrt(dx*dx + dy*dy);
+            if(len < 2) return; // No significant flow
+            
+            const angle = Math.atan2(dy, dx);
+            const size = Math.min(len, 25);
+
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.strokeStyle = "rgba(0, 255, 255, 0.5)";
+            ctx.lineWidth = 1.5;
+            
+            ctx.beginPath();
+            ctx.moveTo(-size/2, 0);
+            ctx.lineTo(size/2, 0);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(size/2, 0);
+            ctx.lineTo(size/2-4, -3);
+            ctx.lineTo(size/2-4, 3);
+            ctx.fillStyle = "cyan";
+            ctx.fill();
+            ctx.restore();
         }
     </script>
 </body>
