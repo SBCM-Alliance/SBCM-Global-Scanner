@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SBCM FIELD SCANNER v3.2</title>
+    <title>SBCM FIELD SCANNER v3.3</title>
     
     <!-- Fonts & Map -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -184,6 +184,7 @@
             map.on('resize', resizeCanvas);
         };
 
+        // 1. JUMP
         async function jumpTo(city) {
             if(!city) return;
             document.getElementById('map-viewer').style.display = 'block';
@@ -200,6 +201,7 @@
             } catch(e) { alert("Geo Error"); }
         }
 
+        // 2. FETCH
         function onMapMove() {
             const zoom = map.getZoom();
             if(zoom < 13) {
@@ -236,7 +238,7 @@
             }
         }
 
-        // --- FIXED LOGIC ---
+        // 3. ANALYSIS LOGIC (AI AUDITOR) - STRICT MODE
         function analyzeData(elements) {
             let nodes = 0, ways = 0;
             elements.forEach(e => {
@@ -244,26 +246,32 @@
                 if(e.type === 'way') ways++;
             });
 
+            // 絶対的な密度（要素数）で足切りを行う
             const totalDensity = nodes + ways;
             
-            // Base Score: (Ways / Nodes) -> Low is good
-            let rawScore = (ways * 50) / (nodes || 1); 
-            
-            // PENALTY FACTOR (Soft Logic)
-            // 密度が低いほど、スコアを悪化させる係数を掛ける
-            // 密度200未満ならペナルティ開始、密度20未満なら10倍のペナルティ
-            let penalty = 1.0;
-            if (totalDensity < 200) penalty = 200 / (totalDensity || 1);
-            if (penalty > 10) penalty = 10; // Cap penalty
-
-            const finalScore = rawScore * penalty;
-            
             let type = "SAFE";
-            if (finalScore > 50) type = "WARN";
-            if (finalScore > 100) type = "CRITICAL";
-            if (totalDensity < 10) type = "VOID"; // ほぼ無
+            let score = 0;
 
-            updateAnalysis(type, finalScore, nodes);
+            if (totalDensity < 200) {
+                // スカスカすぎる = 経済活動ほぼなし（VOID）
+                type = "VOID";
+                score = 999; 
+            } else if (totalDensity < 800) {
+                // 要素はあるが、都市としてはスカスカ（山道のカーブなど）
+                // 以前はここでRatio計算をしてしまい、山道が高評価になっていた。
+                // ここでCRITICALに落とすことでバグを解消。
+                type = "CRITICAL";
+                score = 500;
+            } else {
+                // ここまで来て初めて「都市」としての効率を計算する権利を得る
+                // 都市部: 交差点(分岐)あたりの道路長を見る
+                score = (ways * 50) / (nodes || 1); 
+                
+                if(score > 30) type = "WARN";
+                if(score > 60) type = "CRITICAL"; 
+            }
+
+            updateAnalysis(type, score, nodes);
         }
 
         function updateAnalysis(type, score, nodes) {
@@ -283,27 +291,28 @@
             }
 
             if (type === "SAFE") {
-                txt.innerHTML = `✅ <b>自律循環エリア</b><br>インフラ密度と効率のバランスが良好です。富のベクトルは安定して循環しています。`;
+                txt.innerHTML = `✅ <b>高密度・自律循環型</b><br>インフラ効率は極めて良好です。富のベクトルはエリア内で複雑に循環しており、外部への漏出は最小限です。`;
                 tag.className = "analysis-tag tag-safe"; tag.innerText = "EXCELLENT";
                 box.style.borderTopColor = "var(--accent)";
             } 
             else if (type === "WARN") {
-                txt.innerHTML = `⚠️ <b>効率低下エリア</b><br>密度に対して道路網が過剰です。維持コストの増大が懸念されます。`;
+                txt.innerHTML = `⚠️ <b>効率低下の兆候</b><br>インフラ密度が分散し始めています。ベクトルの一部が幹線道路へ流出し、ストロー効果の初期段階が見られます。`;
                 tag.className = "analysis-tag tag-warn"; tag.innerText = "WARNING";
                 box.style.borderTopColor = "orange";
             }
             else if (type === "CRITICAL") {
-                txt.innerHTML = `🚨 <b>維持困難エリア</b><br>低密度かつ高負荷です。インフラが薄く引き伸ばされ、富が急速に流出しています。`;
+                txt.innerHTML = `🚨 <b>構造的欠陥・高負荷</b><br>インフラ維持コストが限界を超えています。ベクトルは「一本道」に吸い寄せられ、富がエリア外へ急速に流出しています。`;
                 tag.className = "analysis-tag tag-danger"; tag.innerText = "CRITICAL";
                 box.style.borderTopColor = "var(--warn)";
             }
             else if (type === "VOID") {
-                txt.innerHTML = `🌌 <b>経済空白地帯</b><br>有意な経済活動（ノード）が検知されません。完全な過疎、または自然保護区です。`;
+                txt.innerHTML = `🌌 <b>経済空白地帯</b><br>有意な経済活動（ノード）が検知されません。完全な過疎、または自然保護区です。維持コストのみが発生しています。`;
                 tag.className = "analysis-tag tag-danger"; tag.innerText = "VOID";
                 box.style.borderTopColor = "#555";
             }
         }
 
+        // 4. DRAWING
         function resizeCanvas() {
             const wrap = document.getElementById('map-viewer');
             canvas.width = wrap.clientWidth;
@@ -332,18 +341,13 @@
             for (let x = 1; x < cols - 1; x++) {
                 for (let y = 1; y < rows - 1; y++) {
                     const density = grid[x][y];
-                    // Gradient Calculation
                     const dx = (grid[x-1][y] - grid[x+1][y]) * 5;
                     const dy = (grid[x][y-1] - grid[x][y+1]) * 5;
                     
-                    // Heatmap (Red = Void/Leakage)
                     if(density < 1) {
                         ctx.fillStyle = `rgba(255, 0, 85, 0.15)`;
                         ctx.fillRect(x*gridSize, y*gridSize, gridSize, gridSize);
                     }
-
-                    // Vector Arrows (Flow)
-                    // High sensitivity for low density areas
                     const px = x * gridSize + gridSize/2;
                     const py = y * gridSize + gridSize/2;
                     drawArrow(ctx, px, py, dx, dy);
@@ -353,22 +357,19 @@
 
         function drawArrow(ctx, x, y, dx, dy) {
             const len = Math.sqrt(dx*dx + dy*dy);
-            if(len < 0.5) return; // Increased sensitivity (was 2)
-            
+            if(len < 2) return;
             const angle = Math.atan2(dy, dx);
-            const size = Math.min(len * 2, 30); // Boost visual size
+            const size = Math.min(len, 25);
 
             ctx.save();
             ctx.translate(x, y);
             ctx.rotate(angle);
             ctx.strokeStyle = "rgba(0, 255, 255, 0.6)";
             ctx.lineWidth = 1.5;
-            
             ctx.beginPath();
             ctx.moveTo(-size/2, 0);
             ctx.lineTo(size/2, 0);
             ctx.stroke();
-
             ctx.beginPath();
             ctx.moveTo(size/2, 0);
             ctx.lineTo(size/2-4, -3);
