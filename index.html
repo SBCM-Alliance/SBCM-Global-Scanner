@@ -3,296 +3,166 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SBCM FIELD SCANNER v5</title>
+    <title>SBCM GLOBAL SCANNER v7.1</title>
     
-    <!-- Fonts & Map -->
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
-        :root {
-            --bg: #050505; --panel: #111; --text: #e0e0e0;
-            --accent: #00ff41; --warn: #ff0055; --sub: #666; --cyan: #00ffff;
-        }
-        * { box-sizing: border-box; }
-        
-        body { 
-            margin: 0; background: var(--bg); color: var(--text); 
-            font-family: 'JetBrains Mono', monospace, sans-serif;
-            padding: 20px; line-height: 1.5; min-height: 100vh;
-        }
-        
-        .container { max-width: 600px; margin: 0 auto; padding-bottom: 80px; }
-        
-        header { text-align: center; margin-bottom: 20px; }
-        h1 { margin: 0; font-size: 1.2rem; letter-spacing: 2px; color: #fff; }
-        .subtitle { font-size: 0.7rem; color: var(--sub); }
+        body { margin: 0; background: #000; color: #fff; font-family: 'JetBrains Mono', monospace; overflow: hidden; }
+        #map { width: 100%; height: 100vh; }
 
-        .keypad {
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px;
+        /* UI */
+        #ui {
+            position: absolute; top: 10px; left: 10px; z-index: 10;
+            background: rgba(0,0,0,0.9); padding: 15px; border: 1px solid #00ffff;
+            border-radius: 4px; font-size: 0.75rem; width: 240px;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
         }
-        .key-btn {
-            aspect-ratio: 1.3; background: #000; border: 1px solid #333; color: #fff;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            cursor: pointer; border-radius: 4px; transition: 0.1s;
-        }
-        .key-btn:active { background: #222; border-color: var(--cyan); }
-        .key-label { font-size: 0.85rem; font-weight: bold; }
-        .key-sub { font-size: 0.6rem; color: #666; }
-
-        .hidden { display: none; }
-        #manual-input { display: flex; gap: 5px; margin-bottom: 15px; }
-        input { flex: 1; background: #000; border: 1px solid #333; color: #fff; padding: 10px; font-family: inherit; }
-        button { background: var(--text); color: #000; border: none; padding: 0 15px; font-weight: bold; cursor: pointer; }
-
-        #map-viewer {
-            display: none; position: relative; width: 100%; height: 500px;
-            border: 1px solid var(--cyan); border-radius: 8px; overflow: hidden; margin-top: 20px;
-        }
-        #map { width: 100%; height: 100%; background: #222; z-index: 1; }
-        #field-canvas { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
-
-        /* LEGEND BOX (Simplified) */
-        #legend-box {
-            position: absolute; bottom: 0; left: 0; right: 0; z-index: 10;
-            background: rgba(0,0,0,0.9); border-top: 1px solid var(--sub);
-            padding: 15px; font-size: 0.7rem; color: #aaa;
-            display: flex; justify-content: space-between; align-items: center;
-        }
+        h1 { margin: 0 0 5px 0; font-size: 1rem; color: #00ffff; letter-spacing: 1px; }
         
-        .legend-item { display: flex; align-items: center; gap: 5px; }
-        .icon-arrow { color: var(--cyan); font-weight: bold; font-size: 1.2rem; }
-        .icon-heat { width: 12px; height: 12px; background: rgba(255, 0, 85, 0.6); display: inline-block; border: 1px solid var(--warn); }
-
-        .map-status-bar {
-            position: absolute; top: 10px; left: 10px; right: 10px; z-index: 3;
-            display: flex; justify-content: space-between; pointer-events: none;
-        }
-        .status-badge {
-            background: rgba(0,0,0,0.8); padding: 5px 10px; border: 1px solid #333;
-            font-size: 0.7rem; color: var(--cyan); backdrop-filter: blur(2px);
-        }
+        .legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .box { width: 10px; height: 10px; border: 1px solid #fff; }
+        .line { width: 20px; height: 3px; background: #0088ff; box-shadow: 0 0 5px #0088ff; }
         
-        #mini-loader {
+        .search-box {
+            display: flex; gap: 5px; margin-top: 10px; border-top: 1px dashed #555; padding-top: 10px;
+            pointer-events: auto;
+        }
+        input { background: #111; border: 1px solid #555; color: #fff; padding: 5px; width: 100%; font-family: inherit; }
+        button { background: #00ffff; color: #000; border: none; font-weight: bold; cursor: pointer; }
+
+        #loading {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            z-index: 4; display: none; flex-direction: column; align-items: center;
-            background: rgba(0,0,0,0.7); padding: 20px; border-radius: 8px;
+            z-index: 99; color: #00ffff; font-weight: bold; pointer-events: none;
+            text-shadow: 0 0 10px #00ffff;
         }
-        .spinner {
-            width: 24px; height: 24px; border: 2px solid #333; border-top: 2px solid var(--cyan);
-            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 5px;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <header>
-            <h1>SBCM FIELD SCANNER v5</h1>
-            <div class="subtitle">VISUALIZATION ONLY</div>
-        </header>
+    <div id="loading">INITIALIZING...</div>
 
-        <div class="keypad">
-            <div class="key-btn" onclick="jumpTo('豊島区')"><span class="key-label">豊島区</span><span class="key-sub">TKYO</span></div>
-            <div class="key-btn" onclick="jumpTo('港区')"><span class="key-label">港区</span><span class="key-sub">TKYO</span></div>
-            <div class="key-btn" onclick="jumpTo('柏市')"><span class="key-label">柏市</span><span class="key-sub">CHIBA</span></div>
-            
-            <div class="key-btn" onclick="jumpTo('京都市')"><span class="key-label">京都市</span><span class="key-sub">KYOTO</span></div>
-            <div class="key-btn" onclick="jumpTo('大阪市')"><span class="key-label">大阪市</span><span class="key-sub">OSAKA</span></div>
-            <div class="key-btn" onclick="jumpTo('神戸市')"><span class="key-label">神戸市</span><span class="key-sub">HYOGO</span></div>
-            
-            <div class="key-btn" onclick="jumpTo('福岡市')"><span class="key-label">福岡市</span><span class="key-sub">FUK</span></div>
-            <div class="key-btn" onclick="jumpTo('夕張市')"><span class="key-label">夕張市</span><span class="key-sub">HKD</span></div>
-            <div class="key-btn" onclick="jumpTo('白糠町')"><span class="key-label">白糠町</span><span class="key-sub">HKD</span></div>
+    <div id="ui">
+        <h1>SBCM GLOBAL SCANNER</h1>
+        <div>MODE: HIGH CONTRAST</div>
+        
+        <div class="search-box">
+            <input type="text" id="city-in" placeholder="Ex: Tokyo, Shiranuka">
+            <button onclick="jump()">GO</button>
         </div>
 
-        <div style="text-align:center; margin-bottom:10px;">
-            <span onclick="document.getElementById('manual-input').classList.toggle('hidden')" style="cursor:pointer; color:#666; font-size:0.7rem;">▼ MANUAL SEARCH</span>
-        </div>
-        <div id="manual-input" class="hidden">
-            <input type="text" id="city-in" placeholder="City Name">
-            <button onclick="jumpTo(document.getElementById('city-in').value)">GO</button>
-        </div>
-
-        <div id="map-viewer">
-            <div id="map"></div>
-            <canvas id="field-canvas"></canvas>
+        <div style="margin-top:10px;">
+            <div style="color:#aaa; margin-bottom:5px;">REVENUE (Height)</div>
+            <div class="legend-row"><div class="box" style="background:#00ffff;"></div> HIGH (>30m)</div>
+            <div class="legend-row"><div class="box" style="background:#00ff41;"></div> MID (>10m)</div>
+            <div class="legend-row"><div class="box" style="background:#ff0055;"></div> LOW (<10m)</div>
             
-            <div class="map-status-bar">
-                <div class="status-badge" id="live-coords">READY</div>
-                <div class="status-badge" id="data-count">NODES: 0</div>
-            </div>
-            
-            <div id="mini-loader">
-                <div class="spinner"></div>
-                <div style="font-size:0.7rem; color:#fff;">FETCHING DATA...</div>
-            </div>
-
-            <!-- SIMPLE LEGEND -->
-            <div id="legend-box">
-                <div class="legend-item">
-                    <span class="icon-arrow">→</span>
-                    <div>
-                        <div style="color:#fff; font-weight:bold;">FLOW VECTOR</div>
-                        <div>富の流れ (高→低)</div>
-                    </div>
-                </div>
-                <div class="legend-item">
-                    <span class="icon-heat"></span>
-                    <div>
-                        <div style="color:#fff; font-weight:bold;">VOID / LEAKAGE</div>
-                        <div>空白地帯 (歪み)</div>
-                    </div>
-                </div>
-            </div>
+            <div style="color:#aaa; margin-top:10px; margin-bottom:5px;">COST (Arteries)</div>
+            <div class="legend-row"><div class="line"></div> MAIN ROADS</div>
         </div>
     </div>
 
+    <div id="map"></div>
+
     <script>
-        const OVERPASS_API = "https://overpass-api.de/api/interpreter";
-        let map, canvas, ctx;
-        let osmElements = [];
-        let isFetching = false;
+        const OFFICIAL_STYLE = 'https://tiles.openfreemap.org/styles/dark';
 
-        window.onload = () => {
-            map = L.map('map', { zoomControl: false }).setView([35.6895, 139.6917], 13);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; CartoDB',
-                subdomains: 'abcd',
-                maxZoom: 19
-            }).addTo(map);
+        const map = new maplibregl.Map({
+            container: 'map',
+            style: OFFICIAL_STYLE,
+            center: [139.7, 35.7], // Tokyo
+            zoom: 14,
+            pitch: 60,
+            bearing: -20,
+            antialias: true
+        });
 
-            canvas = document.getElementById('field-canvas');
-            ctx = canvas.getContext('2d');
+        map.addControl(new maplibregl.NavigationControl());
 
-            map.on('moveend', onMapMove);
-            map.on('zoomend', onMapMove);
-            map.on('resize', resizeCanvas);
-        };
+        map.on('load', () => {
+            document.getElementById('loading').style.display = 'none';
+            
+            // 1. CLEANUP: 既存の建物と細かい道路を消す
+            // これで画面をスッキリさせ、主要インフラだけを目立たせる
+            map.getStyle().layers.forEach(layer => {
+                // 建物レイヤーを消す
+                if (layer['source-layer'] === 'building' || layer.id.includes('building')) {
+                    map.setLayoutProperty(layer.id, 'visibility', 'none');
+                }
+                // 細かい道路のラベル等を薄くする（お好みで）
+            });
 
-        async function jumpTo(city) {
+            const sources = map.getStyle().sources;
+            const vectorSourceId = Object.keys(sources).find(key => sources[key].type === 'vector');
+            if (!vectorSourceId) return;
+
+            // 2. 道路レイヤー (COST)
+            // フィルタリング: 'motorway'(高速), 'trunk'(国道), 'primary'(主要道) のみ光らせる
+            map.addLayer({
+                'id': 'sbcm-roads-major',
+                'source': vectorSourceId,
+                'source-layer': 'transportation',
+                'type': 'line',
+                'filter': ['in', 'class', 'motorway', 'trunk', 'primary', 'secondary'],
+                'paint': {
+                    'line-color': '#0088ff',
+                    'line-width': 2,
+                    'line-opacity': 0.7,
+                    'line-blur': 1 // ネオン管のような発光効果
+                }
+            });
+
+            // 3. 建物レイヤー (REVENUE)
+            // 閾値を調整して、日本の都市に最適化
+            map.addLayer({
+                'id': 'sbcm-3d-buildings',
+                'source': vectorSourceId,
+                'source-layer': 'building',
+                'type': 'fill-extrusion',
+                'minzoom': 12,
+                'paint': {
+                    'fill-extrusion-height': [
+                        'coalesce', ['get', 'render_height'], ['get', 'height'], 5
+                    ],
+                    'fill-extrusion-base': [
+                        'coalesce', ['get', 'render_min_height'], ['get', 'min_height'], 0
+                    ],
+                    // SBCM カラーリング (Japanese Urban Standard)
+                    'fill-extrusion-color': [
+                        'step',
+                        ['coalesce', ['get', 'render_height'], ['get', 'height'], 5],
+                        '#ff0055', // 0-10m: 住宅/アパート (Sprawl)
+                        10, '#00ff41', // 10-30m: 中層ビル/マンション (Efficient)
+                        30, '#00ffff'  // 30m+: 高層/タワー (Excellent)
+                    ],
+                    'fill-extrusion-opacity': 0.9
+                }
+            });
+        });
+
+        async function jump() {
+            const city = document.getElementById('city-in').value;
             if(!city) return;
-            document.getElementById('map-viewer').style.display = 'block';
-            map.invalidateSize(); 
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading').innerText = 'FLYING...';
+
             try {
                 const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)}&limit=1`;
                 const res = await fetch(url);
                 const data = await res.json();
                 if(data.length > 0) {
-                    const lat = parseFloat(data[0].lat);
-                    const lon = parseFloat(data[0].lon);
-                    map.setView([lat, lon], 14);
+                    map.flyTo({
+                        center: [parseFloat(data[0].lon), parseFloat(data[0].lat)],
+                        zoom: 14, pitch: 60
+                    });
                 } else { alert("City not found"); }
             } catch(e) { alert("Geo Error"); }
-        }
-
-        function onMapMove() {
-            const zoom = map.getZoom();
-            if(zoom < 13) {
-                document.getElementById('live-coords').innerText = "ZOOM IN TO SCAN";
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                return;
+            finally { 
+                setTimeout(()=>document.getElementById('loading').style.display='none', 1500); 
             }
-            fetchViewportData();
-        }
-
-        async function fetchViewportData() {
-            if(isFetching) return;
-            isFetching = true;
-            document.getElementById('mini-loader').style.display = 'flex';
-
-            const b = map.getBounds();
-            document.getElementById('live-coords').innerText = `LAT:${b.getNorth().toFixed(2)} LON:${b.getEast().toFixed(2)}`;
-
-            try {
-                const query = `[out:json][timeout:10];(way["highway"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()});node(w););out skel;`;
-                const res = await fetch(OVERPASS_API, { method: 'POST', body: query });
-                const data = await res.json();
-                osmElements = data.elements;
-                
-                // Show raw data count instead of score
-                document.getElementById('data-count').innerText = `NODES: ${osmElements.length}`;
-                
-                resizeCanvas();
-                drawVectorField();
-
-            } catch(err) { console.log("Fetch error"); } 
-            finally {
-                isFetching = false;
-                document.getElementById('mini-loader').style.display = 'none';
-            }
-        }
-
-        function resizeCanvas() {
-            const wrap = document.getElementById('map-viewer');
-            canvas.width = wrap.clientWidth;
-            canvas.height = wrap.clientHeight;
-        }
-
-        // --- PURE VISUALIZATION (No Judgment) ---
-        function drawVectorField() {
-            if(!osmElements.length) return;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            const gridSize = 40; 
-            const cols = Math.ceil(canvas.width / gridSize);
-            const rows = Math.ceil(canvas.height / gridSize);
-            const grid = Array(cols).fill().map(() => Array(rows).fill(0));
-
-            const bounds = map.getBounds();
-            osmElements.forEach(el => {
-                if(el.type === 'node') {
-                    const p = map.latLngToContainerPoint([el.lat, el.lon]);
-                    const x = Math.floor(p.x / gridSize);
-                    const y = Math.floor(p.y / gridSize);
-                    if(x>=0 && x<cols && y>=0 && y<rows) grid[x][y]++;
-                }
-            });
-
-            for (let x = 1; x < cols - 1; x++) {
-                for (let y = 1; y < rows - 1; y++) {
-                    const density = grid[x][y];
-                    const dx = (grid[x-1][y] - grid[x+1][y]) * 5;
-                    const dy = (grid[x][y-1] - grid[x][y+1]) * 5;
-                    
-                    // Heatmap (Low Density = Red)
-                    if(density < 1) {
-                        ctx.fillStyle = `rgba(255, 0, 85, 0.15)`;
-                        ctx.fillRect(x*gridSize, y*gridSize, gridSize, gridSize);
-                    }
-
-                    const px = x * gridSize + gridSize/2;
-                    const py = y * gridSize + gridSize/2;
-                    drawArrow(ctx, px, py, dx, dy);
-                }
-            }
-        }
-
-        function drawArrow(ctx, x, y, dx, dy) {
-            const len = Math.sqrt(dx*dx + dy*dy);
-            if(len < 2) return;
-            const angle = Math.atan2(dy, dx);
-            const size = Math.min(len, 25);
-
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(angle);
-            ctx.strokeStyle = "rgba(0, 255, 255, 0.6)";
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(-size/2, 0);
-            ctx.lineTo(size/2, 0);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(size/2, 0);
-            ctx.lineTo(size/2-4, -3);
-            ctx.lineTo(size/2-4, 3);
-            ctx.fillStyle = "cyan";
-            ctx.fill();
-            ctx.restore();
         }
     </script>
 </body>
