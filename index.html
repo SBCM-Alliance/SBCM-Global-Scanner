@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SBCM FIELD SCANNER v3.3</title>
+    <title>SBCM FIELD SCANNER v4 (Sprawl Detection)</title>
     
     <!-- Fonts & Map -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -26,15 +26,12 @@
         
         .container { max-width: 600px; margin: 0 auto; padding-bottom: 80px; }
         
-        /* HEADER */
         header { text-align: center; margin-bottom: 20px; }
         h1 { margin: 0; font-size: 1.2rem; letter-spacing: 2px; color: #fff; }
         .subtitle { font-size: 0.7rem; color: var(--sub); }
 
-        /* KEYPAD */
         .keypad {
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
-            margin-bottom: 15px;
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px;
         }
         .key-btn {
             aspect-ratio: 1.3; background: #000; border: 1px solid #333; color: #fff;
@@ -45,23 +42,18 @@
         .key-label { font-size: 0.85rem; font-weight: bold; }
         .key-sub { font-size: 0.6rem; color: #666; }
 
-        /* MANUAL INPUT */
         .hidden { display: none; }
         #manual-input { display: flex; gap: 5px; margin-bottom: 15px; }
         input { flex: 1; background: #000; border: 1px solid #333; color: #fff; padding: 10px; font-family: inherit; }
         button { background: var(--text); color: #000; border: none; padding: 0 15px; font-weight: bold; cursor: pointer; }
 
-        /* MAP VIEWER */
         #map-viewer {
-            display: none; position: relative;
-            width: 100%; height: 500px;
-            border: 1px solid var(--cyan);
-            border-radius: 8px; overflow: hidden; margin-top: 20px;
+            display: none; position: relative; width: 100%; height: 500px;
+            border: 1px solid var(--cyan); border-radius: 8px; overflow: hidden; margin-top: 20px;
         }
         #map { width: 100%; height: 100%; background: #222; z-index: 1; }
         #field-canvas { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
 
-        /* ANALYSIS BOX */
         #analysis-box {
             position: absolute; bottom: 0; left: 0; right: 0; z-index: 10;
             background: rgba(0,0,0,0.9); border-top: 2px solid var(--cyan);
@@ -78,7 +70,6 @@
         .tag-warn { background: orange; }
         .tag-danger { background: var(--warn); color: #fff; }
 
-        /* STATUS OVERLAY */
         .map-status-bar {
             position: absolute; top: 10px; left: 10px; right: 10px; z-index: 3;
             display: flex; justify-content: space-between; pointer-events: none;
@@ -88,7 +79,6 @@
             font-size: 0.7rem; color: var(--cyan); backdrop-filter: blur(2px);
         }
         
-        /* LOADER */
         #mini-loader {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             z-index: 4; display: none; flex-direction: column; align-items: center;
@@ -105,11 +95,10 @@
 
     <div class="container">
         <header>
-            <h1>SBCM FIELD SCANNER</h1>
-            <div class="subtitle">REAL-TIME DYNAMIC ANALYSIS</div>
+            <h1>SBCM FIELD SCANNER v4</h1>
+            <div class="subtitle">SPATIAL DISPERSION ANALYSIS</div>
         </header>
 
-        <!-- KEYPAD -->
         <div class="keypad">
             <div class="key-btn" onclick="jumpTo('豊島区')"><span class="key-label">豊島区</span><span class="key-sub">TKYO</span></div>
             <div class="key-btn" onclick="jumpTo('港区')"><span class="key-label">港区</span><span class="key-sub">TKYO</span></div>
@@ -124,7 +113,6 @@
             <div class="key-btn" onclick="jumpTo('白糠町')"><span class="key-label">白糠町</span><span class="key-sub">HKD</span></div>
         </div>
 
-        <!-- MANUAL -->
         <div style="text-align:center; margin-bottom:10px;">
             <span onclick="document.getElementById('manual-input').classList.toggle('hidden')" style="cursor:pointer; color:#666; font-size:0.7rem;">▼ MANUAL SEARCH</span>
         </div>
@@ -133,30 +121,22 @@
             <button onclick="jumpTo(document.getElementById('city-in').value)">GO</button>
         </div>
 
-        <!-- MAP -->
         <div id="map-viewer">
             <div id="map"></div>
             <canvas id="field-canvas"></canvas>
-            
-            <!-- Overlays -->
             <div class="map-status-bar">
                 <div class="status-badge" id="live-coords">READY</div>
             </div>
-            
             <div id="mini-loader">
                 <div class="spinner"></div>
                 <div style="font-size:0.7rem; color:#fff;">FETCHING DATA...</div>
             </div>
-
-            <!-- ANALYSIS POPUP -->
             <div id="analysis-box">
                 <div class="analysis-title">
                     <span>AI AUDITOR LOG</span>
                     <span id="ai-score">SCORE: ---</span>
                 </div>
-                <div id="ai-text" class="analysis-text">
-                    Scanning field data...
-                </div>
+                <div id="ai-text" class="analysis-text">Scanning field data...</div>
                 <div id="ai-tag" class="analysis-tag tag-safe">ANALYZING</div>
             </div>
         </div>
@@ -184,7 +164,6 @@
             map.on('resize', resizeCanvas);
         };
 
-        // 1. JUMP
         async function jumpTo(city) {
             if(!city) return;
             document.getElementById('map-viewer').style.display = 'block';
@@ -201,7 +180,6 @@
             } catch(e) { alert("Geo Error"); }
         }
 
-        // 2. FETCH
         function onMapMove() {
             const zoom = map.getZoom();
             if(zoom < 13) {
@@ -238,37 +216,54 @@
             }
         }
 
-        // 3. ANALYSIS LOGIC (AI AUDITOR) - STRICT MODE
+        // --- NEW LOGIC v4: SPATIAL DISPERSION ---
         function analyzeData(elements) {
+            // 1. 基本集計
             let nodes = 0, ways = 0;
             elements.forEach(e => {
                 if(e.type === 'node') nodes++;
                 if(e.type === 'way') ways++;
             });
 
-            // 絶対的な密度（要素数）で足切りを行う
-            const totalDensity = nodes + ways;
+            // 2. 空間占有率（Sprawl）の計算
+            // 画面を10x10のグリッドに分割し、「インフラが存在するグリッド数」を数える。
+            const gridSize = 10;
+            const occupiedGrids = new Set();
+            const bounds = map.getBounds();
             
+            elements.forEach(e => {
+                if(e.type === 'node' && bounds.contains([e.lat, e.lon])) {
+                    const p = map.latLngToContainerPoint([e.lat, e.lon]);
+                    // キャンバスに対する相対位置(0.0-1.0)
+                    const gx = Math.floor((p.x / canvas.width) * gridSize);
+                    const gy = Math.floor((p.y / canvas.height) * gridSize);
+                    if(gx>=0 && gx<gridSize && gy>=0 && gy<gridSize) {
+                        occupiedGrids.add(`${gx},${gy}`);
+                    }
+                }
+            });
+
+            const spreadCount = occupiedGrids.size; // 最大100
+            const totalDensity = nodes + ways;
+
+            // 3. 判定ロジック
             let type = "SAFE";
             let score = 0;
 
-            if (totalDensity < 200) {
-                // スカスカすぎる = 経済活動ほぼなし（VOID）
-                type = "VOID";
-                score = 999; 
-            } else if (totalDensity < 800) {
-                // 要素はあるが、都市としてはスカスカ（山道のカーブなど）
-                // 以前はここでRatio計算をしてしまい、山道が高評価になっていた。
-                // ここでCRITICALに落とすことでバグを解消。
-                type = "CRITICAL";
-                score = 500;
-            } else {
-                // ここまで来て初めて「都市」としての効率を計算する権利を得る
-                // 都市部: 交差点(分岐)あたりの道路長を見る
-                score = (ways * 50) / (nodes || 1); 
+            if (totalDensity < 50) {
+                type = "VOID"; score = 999;
+            } 
+            else {
+                // スコア定義: (占有エリア数 / 密度)
+                // 密度が低いのに、広く散らばっているとスコアが高くなる（＝非効率）
+                // 都市部：密度が高いので分母が大きく、スコアは小さくなる（＝効率的）
                 
-                if(score > 30) type = "WARN";
-                if(score > 60) type = "CRITICAL"; 
+                // 補正係数: OSMの粗さを考慮して、分母（密度）の影響を少し抑える
+                score = (spreadCount * 100) / (Math.sqrt(totalDensity) || 1);
+
+                if (score > 100) type = "CRITICAL";
+                else if (score > 60) type = "WARN";
+                else type = "SAFE";
             }
 
             updateAnalysis(type, score, nodes);
@@ -280,39 +275,37 @@
             const tag = document.getElementById('ai-tag');
             const sc = document.getElementById('ai-score');
 
-            sc.innerText = `BURDEN: ${score.toFixed(1)}`;
+            sc.innerText = `SPRAWL IDX: ${score.toFixed(1)}`;
             box.classList.add('visible');
 
             if (type === "ZOOM_OUT") {
                 txt.innerHTML = "広域スキャン待機中。<br>詳細分析のため、地図を拡大してください。";
-                tag.className = "analysis-tag"; 
-                tag.style.background = "#666"; tag.innerText = "STANDBY";
+                tag.className = "analysis-tag"; tag.style.background = "#666"; tag.innerText = "STANDBY";
                 return;
             }
 
             if (type === "SAFE") {
-                txt.innerHTML = `✅ <b>高密度・自律循環型</b><br>インフラ効率は極めて良好です。富のベクトルはエリア内で複雑に循環しており、外部への漏出は最小限です。`;
-                tag.className = "analysis-tag tag-safe"; tag.innerText = "EXCELLENT";
+                txt.innerHTML = `✅ <b>高密度・凝縮型</b><br>インフラが集約されています。面積あたりの密度が高く、SBCM理論上の「標準ブロック」として機能しています。`;
+                tag.className = "analysis-tag tag-safe"; tag.innerText = "EFFICIENT";
                 box.style.borderTopColor = "var(--accent)";
             } 
             else if (type === "WARN") {
-                txt.innerHTML = `⚠️ <b>効率低下の兆候</b><br>インフラ密度が分散し始めています。ベクトルの一部が幹線道路へ流出し、ストロー効果の初期段階が見られます。`;
+                txt.innerHTML = `⚠️ <b>分散・低密度</b><br>インフラ密度に対して、エリアが広がりすぎています。OSMデータの欠損、またはスプロール現象の可能性があります。`;
                 tag.className = "analysis-tag tag-warn"; tag.innerText = "WARNING";
                 box.style.borderTopColor = "orange";
             }
             else if (type === "CRITICAL") {
-                txt.innerHTML = `🚨 <b>構造的欠陥・高負荷</b><br>インフラ維持コストが限界を超えています。ベクトルは「一本道」に吸い寄せられ、富がエリア外へ急速に流出しています。`;
+                txt.innerHTML = `🚨 <b>拡散・維持困難 (Sprawl)</b><br>致命的に密度が不足しています。少ないノードが広範囲に点在しており、インフラ維持効率が極めて悪化しています。`;
                 tag.className = "analysis-tag tag-danger"; tag.innerText = "CRITICAL";
                 box.style.borderTopColor = "var(--warn)";
             }
             else if (type === "VOID") {
-                txt.innerHTML = `🌌 <b>経済空白地帯</b><br>有意な経済活動（ノード）が検知されません。完全な過疎、または自然保護区です。維持コストのみが発生しています。`;
+                txt.innerHTML = `🌌 <b>経済空白地帯</b><br>有意な経済活動（ノード）が検知されません。維持コストのみが発生している、または自然保護区です。`;
                 tag.className = "analysis-tag tag-danger"; tag.innerText = "VOID";
                 box.style.borderTopColor = "#555";
             }
         }
 
-        // 4. DRAWING
         function resizeCanvas() {
             const wrap = document.getElementById('map-viewer');
             canvas.width = wrap.clientWidth;
