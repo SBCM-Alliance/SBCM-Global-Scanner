@@ -17,7 +17,7 @@
 **👉 [Launch Distortion Map](https://sbcm-alliance.github.io/distortion-map/)**
 *(PC / Smartphone Browser)*
 
-|デモ(港区)|
+|デモ(柏市)|
 |:---:|
 |![](images/demo.jpg)|
 ---
