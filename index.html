@@ -3,167 +3,240 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SBCM GLOBAL SCANNER v7.1</title>
+    <title>SBCM GLOBAL SCANNER v9.1</title>
     
+    <!-- MapLibre GL JS -->
     <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    
+    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: 'JetBrains Mono', monospace; overflow: hidden; }
+        body { margin: 0; background: #050505; color: #fff; font-family: 'JetBrains Mono', monospace; overflow: hidden; }
         #map { width: 100%; height: 100vh; }
 
-        /* UI */
+        /* UI: Glassmorphism Style */
         #ui {
-            position: absolute; top: 10px; left: 10px; z-index: 10;
-            background: rgba(0,0,0,0.9); padding: 15px; border: 1px solid #00ffff;
-            border-radius: 4px; font-size: 0.75rem; width: 240px;
-            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+            position: absolute; top: 15px; left: 15px; z-index: 10;
+            background: rgba(0, 0, 0, 0.75); 
+            backdrop-filter: blur(12px); /* すりガラス効果 */
+            -webkit-backdrop-filter: blur(12px);
+            padding: 20px; 
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-left: 4px solid #00ffff; /* Cyberpunk Accent */
+            border-radius: 8px; width: 260px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
         }
-        h1 { margin: 0 0 5px 0; font-size: 1rem; color: #00ffff; letter-spacing: 1px; }
-        
-        .legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-        .box { width: 10px; height: 10px; border: 1px solid #fff; }
-        .line { width: 20px; height: 3px; background: #0088ff; box-shadow: 0 0 5px #0088ff; }
-        
-        .search-box {
-            display: flex; gap: 5px; margin-top: 10px; border-top: 1px dashed #555; padding-top: 10px;
-            pointer-events: auto;
-        }
-        input { background: #111; border: 1px solid #555; color: #fff; padding: 5px; width: 100%; font-family: inherit; }
-        button { background: #00ffff; color: #000; border: none; font-weight: bold; cursor: pointer; }
 
+        h1 { 
+            margin: 0 0 5px 0; font-size: 1.1rem; color: #fff; 
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+            letter-spacing: 1px;
+        }
+        .sub { font-size: 0.65rem; color: #aaa; margin-bottom: 20px; letter-spacing: 0.5px; }
+        
+        /* Legend Items */
+        .legend-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 0.75rem; }
+        .box { width: 12px; height: 12px; border-radius: 2px; box-shadow: 0 0 6px currentColor; }
+        
+        /* Search Box */
+        .search-box { 
+            display: flex; gap: 8px; margin-top: 20px; 
+            border-top: 1px solid rgba(255,255,255,0.2); padding-top: 15px; 
+        }
+        input { 
+            background: rgba(255,255,255,0.05); border: 1px solid #444; 
+            color: #fff; padding: 8px; width: 100%; border-radius: 4px; 
+            font-family: inherit; font-size: 0.8rem;
+        }
+        input:focus { outline: none; border-color: #00ffff; }
+        
+        button { 
+            background: #00ffff; color: #000; border: none; 
+            font-weight: bold; cursor: pointer; border-radius: 4px; padding: 0 12px;
+            transition: all 0.2s;
+        }
+        button:hover { background: #fff; box-shadow: 0 0 15px #00ffff; }
+
+        /* Loading Overlay */
         #loading {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            z-index: 99; color: #00ffff; font-weight: bold; pointer-events: none;
-            text-shadow: 0 0 10px #00ffff;
+            z-index: 99; color: #00ffff; font-weight: bold; 
+            text-shadow: 0 0 10px #00ffff; display: none;
         }
     </style>
 </head>
 <body>
 
-    <div id="loading">INITIALIZING...</div>
+    <div id="loading">INITIALIZING SYSTEM...</div>
 
     <div id="ui">
-        <h1>SBCM GLOBAL SCANNER</h1>
-        <div>MODE: HIGH CONTRAST</div>
-        
-        <div class="search-box">
-            <input type="text" id="city-in" placeholder="Ex: Tokyo, Shiranuka">
-            <button onclick="jump()">GO</button>
-        </div>
+        <h1>SBCM SCANNER</h1>
+        <div class="sub">INFRASTRUCTURE EFFICIENCY AUDITOR</div>
 
         <div style="margin-top:10px;">
-            <div style="color:#aaa; margin-bottom:5px;">REVENUE (Height)</div>
-            <div class="legend-row"><div class="box" style="background:#00ffff;"></div> HIGH (>30m)</div>
-            <div class="legend-row"><div class="box" style="background:#00ff41;"></div> MID (>10m)</div>
-            <div class="legend-row"><div class="box" style="background:#ff0055;"></div> LOW (<10m)</div>
-            
-            <div style="color:#aaa; margin-top:10px; margin-bottom:5px;">COST (Arteries)</div>
-            <div class="legend-row"><div class="line"></div> MAIN ROADS</div>
+            <!-- Gold: 生産拠点 -->
+            <div class="legend-row" style="color:#ffd700;">
+                <div class="box" style="background:#ffd700;"></div> <b>PRODUCTION (Gold)</b>
+            </div>
+            <!-- Cyan: 高密度 (タワマン/オフィス) -->
+            <div class="legend-row" style="color:#00ffff;">
+                <div class="box" style="background:#00ffff;"></div> DENSITY (High)
+            </div>
+            <!-- Green: 中密度 -->
+            <div class="legend-row" style="color:#00ff41;">
+                <div class="box" style="background:#00ff41;"></div> EFFICIENT (Mid)
+            </div>
+            <!-- Red: スプロール (低密度住宅) -->
+            <div class="legend-row" style="color:#D70040;">
+                <div class="box" style="background:#D70040;"></div> SPRAWL (Low)
+            </div>
+        </div>
+        
+        <div class="search-box">
+            <input type="text" id="city-in" placeholder="Ex: Tokyo, Kawasaki">
+            <button onclick="jump()">GO</button>
         </div>
     </div>
 
     <div id="map"></div>
 
     <script>
-        const OFFICIAL_STYLE = 'https://tiles.openfreemap.org/styles/dark';
+        document.getElementById('loading').style.display = 'block';
 
         const map = new maplibregl.Map({
             container: 'map',
-            style: OFFICIAL_STYLE,
-            center: [139.7, 35.7], // Tokyo
-            zoom: 14,
+            style: 'https://tiles.openfreemap.org/styles/dark',
+            center: [139.7, 35.5], // Kawasaki (Demo Center)
+            zoom: 13.5,
             pitch: 60,
             bearing: -20,
             antialias: true
         });
 
-        map.addControl(new maplibregl.NavigationControl());
+        map.addControl(new maplibregl.NavigationControl({ showCompass: true, showZoom: true }));
 
         map.on('load', () => {
             document.getElementById('loading').style.display = 'none';
-            
-            // 1. CLEANUP: 既存の建物と細かい道路を消す
-            // これで画面をスッキリさせ、主要インフラだけを目立たせる
-            map.getStyle().layers.forEach(layer => {
-                // 建物レイヤーを消す
-                if (layer['source-layer'] === 'building' || layer.id.includes('building')) {
-                    map.setLayoutProperty(layer.id, 'visibility', 'none');
+
+            // 0. CLEANUP: デフォルトの建物レイヤーを隠す
+            map.getStyle().layers.forEach(l => {
+                if (l['source-layer'] === 'building' || l.id.includes('building')) {
+                    map.setLayoutProperty(l.id, 'visibility', 'none');
                 }
-                // 細かい道路のラベル等を薄くする（お好みで）
             });
 
-            const sources = map.getStyle().sources;
-            const vectorSourceId = Object.keys(sources).find(key => sources[key].type === 'vector');
-            if (!vectorSourceId) return;
+            const src = Object.keys(map.getStyle().sources).find(k => map.getStyle().sources[k].type === 'vector');
+            if (!src) return;
 
-            // 2. 道路レイヤー (COST)
-            // フィルタリング: 'motorway'(高速), 'trunk'(国道), 'primary'(主要道) のみ光らせる
+            // 1. LANDUSE (地面発光レイヤー)
+            // 工場や商業施設の「敷地」を黄色く光らせることで、タグのない工場も救済する
             map.addLayer({
-                'id': 'sbcm-roads-major',
-                'source': vectorSourceId,
+                'id': 'sbcm-landuse',
+                'source': src,
+                'source-layer': 'landuse',
+                'type': 'fill',
+                'filter': ['in', 'class', 'industrial', 'commercial', 'retail', 'hospital', 'school', 'college', 'university', 'stadium'],
+                'paint': {
+                    'fill-color': '#ffd700',
+                    'fill-opacity': 0.3, // 0.3くらいが丁度いい（地面が見える）
+                    'fill-outline-color': '#ffd700'
+                },
+                'beforeId': 'water' // 水面より下に描画
+            });
+
+            // 2. ROADS (コストの血管)
+            map.addLayer({
+                'id': 'sbcm-roads',
+                'source': src,
                 'source-layer': 'transportation',
                 'type': 'line',
                 'filter': ['in', 'class', 'motorway', 'trunk', 'primary', 'secondary'],
                 'paint': {
                     'line-color': '#0088ff',
-                    'line-width': 2,
-                    'line-opacity': 0.7,
-                    'line-blur': 1 // ネオン管のような発光効果
+                    'line-width': 1.5,
+                    'line-opacity': 0.8,
+                    'line-blur': 0.5
                 }
             });
 
-            // 3. 建物レイヤー (REVENUE)
-            // 閾値を調整して、日本の都市に最適化
+            // 3. BUILDINGS (3Dボリューム)
             map.addLayer({
-                'id': 'sbcm-3d-buildings',
-                'source': vectorSourceId,
+                'id': 'sbcm-buildings',
+                'source': src,
                 'source-layer': 'building',
                 'type': 'fill-extrusion',
-                'minzoom': 12,
+                'minzoom': 11,
                 'paint': {
-                    'fill-extrusion-height': [
-                        'coalesce', ['get', 'render_height'], ['get', 'height'], 5
-                    ],
-                    'fill-extrusion-base': [
-                        'coalesce', ['get', 'render_min_height'], ['get', 'min_height'], 0
-                    ],
-                    // SBCM カラーリング (Japanese Urban Standard)
+                    // 高さがデータにない場合は5mと仮定
+                    'fill-extrusion-height': ['coalesce', ['get', 'render_height'], ['get', 'height'], 5],
+                    'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], ['get', 'min_height'], 0],
+                    
+                    // --- SBCM Coloring Logic ---
                     'fill-extrusion-color': [
-                        'step',
-                        ['coalesce', ['get', 'render_height'], ['get', 'height'], 5],
-                        '#ff0055', // 0-10m: 住宅/アパート (Sprawl)
-                        10, '#00ff41', // 10-30m: 中層ビル/マンション (Efficient)
-                        30, '#00ffff'  // 30m+: 高層/タワー (Excellent)
+                        'case',
+                        
+                        // Rule 1: PRODUCTION & INFRASTRUCTURE -> Gold (#ffd700)
+                        // 工場、倉庫、商業、インフラ等は高さに関係なくGold
+                        ['any',
+                            ['match', ['get', 'class'], ['industrial','warehouse','commercial','retail','utility','transportation','school','hospital'], true, false],
+                            ['match', ['get', 'type'], ['industrial','warehouse','commercial'], true, false]
+                        ], '#ffd700',
+
+                        // Rule 2: High Rise -> Cyan (#00ffff)
+                        ['>=', ['coalesce', ['get', 'render_height'], ['get', 'height'], 5], 30], '#00ffff',
+                        
+                        // Rule 3: Mid Rise -> Green (#00ff41)
+                        ['>=', ['coalesce', ['get', 'render_height'], ['get', 'height'], 5], 10], '#00ff41',
+                        
+                        // Rule 4: Low Rise / Sprawl -> Deep Red (#D70040)
+                        '#D70040' 
                     ],
-                    'fill-extrusion-opacity': 0.9
+                    'fill-extrusion-opacity': 1.0,
+                    
+                    // 立体感を強調する陰影設定
+                    'fill-extrusion-vertical-gradient': true
                 }
             });
         });
 
+        // 検索機能 (FlyTo)
         async function jump() {
             const city = document.getElementById('city-in').value;
             if(!city) return;
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('loading').innerText = 'FLYING...';
+            
+            // Loading表示
+            const btn = document.querySelector('button');
+            const originalText = btn.innerText;
+            btn.innerText = '...';
+            btn.disabled = true;
 
             try {
-                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)}&limit=1`;
-                const res = await fetch(url);
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)}&limit=1`);
                 const data = await res.json();
                 if(data.length > 0) {
                     map.flyTo({
                         center: [parseFloat(data[0].lon), parseFloat(data[0].lat)],
-                        zoom: 14, pitch: 60
+                        zoom: 14, 
+                        pitch: 60,
+                        essential: true
                     });
-                } else { alert("City not found"); }
-            } catch(e) { alert("Geo Error"); }
-            finally { 
-                setTimeout(()=>document.getElementById('loading').style.display='none', 1500); 
+                } else {
+                    alert("City not found");
+                }
+            } catch(e) {
+                console.error(e);
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
             }
         }
+        
+        // Enterキーで検索
+        document.getElementById('city-in').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') jump();
+        });
     </script>
 </body>
 </html>
