@@ -19,9 +19,9 @@
 **👉 [Launch Global Scanner](https://sbcm-alliance.github.io/SBCM-Global-Scanner/)**
 *(Works on PC / Smartphone Browsers)*
 
-| Demo (Kashiwa City) | 
-| :---: | 
-| <img src="images/demo_kashiwa.jpg" width="300"> |
+| Demo (Kashiwa City) | Beijing| Detroit | Paris| 
+| :---: |  :---: |  :---: |  :---: | 
+| <img src="images/demo_kashiwa.jpg" width="300"> | <img src="images/beijing.jpg" width="300"> | <img src="images/detroit.png" width="300"> | <img src="images/paris.jpg" width="300"> |
 
 ---
 
