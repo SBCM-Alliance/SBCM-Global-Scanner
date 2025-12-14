@@ -1,4 +1,4 @@
-# 🗺️ JAPAN DISTORTION MAP
+# 🌏 SBCM GLOBAL SCANNER
 **3D Volumetric Efficiency Auditor.**
 
 [![Status](https://img.shields.io/badge/System-Operational-success)]()
@@ -6,19 +6,20 @@
 [![Tech](https://img.shields.io/badge/Tech-MapLibre_GL_JS-yellow)](https://maplibre.org/)
 [![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
-> **「平らな地図（2D）では、都市の『稼ぐ力』は見えない。」**
+> **"On a flat map (2D), a city's 'Earning Power' remains invisible."**
 >
-> 地方自治体の財政破綻は、インフラの「平面的な拡散（スプロール）」と、建物の「垂直的な密度（高さ）」の不均衡によって引き起こされます。
-> このツールは、全世界のオープンデータ（Vector Tiles）をリアルタイムで3D化し、**都市の「体積（Volume）」と「維持コスト」のバランス**を可視化する行政鑑識システムです。
+> The fiscal collapse of local governments is caused by the imbalance between the "horizontal diffusion of infrastructure (Sprawl)" and the "vertical density of buildings (Revenue)."
+>
+> This tool is an **Administrative Forensics System** that visualizes the balance between a city's **"Volume"** and **"Maintenance Cost"** by converting global open data (Vector Tiles) into 3D in real-time.
 
 ---
 
 ## 📱 Demo
 
-**👉 [Launch Global Scanner](https://sbcm-alliance.github.io/distortion-map/)**
-*(PC / Smartphone Browser)*
+**👉 [Launch Global Scanner](https://sbcm-alliance.github.io/SBCM-Global-Scanner/)**
+*(Works on PC / Smartphone Browsers)*
 
-| デモ (柏市) | 
+| Demo (Kashiwa City) | 
 | :---: | 
 | <img src="images/demo_kashiwa.jpg" width="300"> |
 
@@ -26,54 +27,57 @@
 
 ## 📐 The Logic (SBCM Field Theory)
 
-本システムは、SBCM理論 Part 4 (Field Theory) に基づき、都市を「面積」ではなく**「体積と密度の場」**として解析します。
+Based on **SBCM Theory Part 4 (Field Theory)**, this system analyzes the city not as a surface area, but as a **"Field of Volume and Density."**
 
-### 1. Revenue Visualization (建物の高さ)
-土地単位面積あたりの「納税力（収益性）」を、建物の高さから推定し色分けします。
+### 1. Revenue Visualization (Building Height)
+We estimate the "Tax Revenue Potential (Profitability)" per unit of land area based on building height and color-code it accordingly.
 
 | Color | Height | Status | Meaning |
 | :--- | :--- | :--- | :--- |
-| <span style="color:#00ffff">■</span> **CYAN** | **> 30m** | **HIGH (Excellent)** | **高層・高密度。** インフラ単価あたりの住民・テナント数が多く、黒字を生む「富のポンプ」。 |
-| <span style="color:#00ff41">■</span> **GREEN** | **> 10m** | **MID (Efficient)** | **中層・適正。** 3階建て以上のビルやマンション。都市として持続可能な密度。 |
-| <span style="color:#ff0055">■</span> **RED** | **< 10m** | **LOW (Sprawl)** | **低層・拡散。** 2階建て以下の住宅。道路延長に対して納税者が少なく、インフラ維持が赤字になりやすい領域。 |
+| <span style="color:#00ffff">■</span> **CYAN** | **> 30m** | **HIGH (Excellent)** | **High Density.** High number of residents/tenants per infrastructure unit cost. These are the "Wealth Pumps" generating surplus. |
+| <span style="color:#00ff41">■</span> **GREEN** | **> 10m** | **MID (Efficient)** | **Medium Density.** Buildings with 3+ floors. Sustainable density for an urban environment. |
+| <span style="color:#ff0055">■</span> **RED** | **< 10m** | **LOW (Sprawl)** | **Low Density.** 2-story houses or less. A "Red Zone" where tax revenue often fails to cover infrastructure maintenance costs. |
 
-### 2. Cost Visualization (インフラの動脈)
+### 2. Cost Visualization (Infrastructure Arteries)
 <span style="color:#0088ff">**― BLUE LINE**</span>
-国道・県道などの主要道路を「青く発光するライン」として描画します。これが行政が維持し続けなければならない**「固定費のネットワーク」**です。
+Major roads (Highways, National/Prefectural roads) are rendered as glowing blue lines. This represents the **"Network of Fixed Costs"** that the administration must maintain indefinitely.
 
-**判定:** 「青い線（コスト）」に対して「青・緑の箱（収益）」が十分に張り付いているか？ それとも「赤い箱」しかないか？ その比率が都市の余命を決定します。
+**The Verdict:**
+Is the "Blue Line (Cost)" supported by enough "Cyan/Green Boxes (Revenue)"?
+Or is it surrounded only by "Red Boxes"?
+This ratio determines the remaining lifespan of the city.
 
 ---
 
 ## 🛠️ Features
 
 ### 1. Global Scope (OpenFreeMap)
-データソースを日本限定のPLATEAUから、全世界対応の **OpenFreeMap (OSM Vector Tiles)** に切り替えました。
-これにより、東京の路地裏からニューヨークの摩天楼、アフリカの地方都市まで、**地球上すべての都市を同一基準で監査可能**になりました。
+We have switched the data source from the Japan-specific PLATEAU to the globally compatible **OpenFreeMap (OSM Vector Tiles)**.
+This allows us to audit every city on Earth—from the backstreets of Tokyo to the skyscrapers of New York, to rural towns in Africa—using the **same standardized criteria**.
 
 ### 2. Layer Injection Technology
-地図のデザインデータ（Style JSON）に依存せず、プログラムが強制的に**「監査用3Dレイヤー」**を地図システムに注入（Inject）します。
-これにより、データさえ存在すれば、どのような場所でも確実に3D化して表示させます。
+The system does not rely on pre-designed map styles (Style JSON). instead, the program forcibly **injects the "Audit 3D Layer"** into the map system.
+This ensures that any location with data is reliably converted to 3D for visualization.
 
 ### 3. Serverless & High Performance
-**MapLibre GL JS** を採用し、スマホのGPUを使ってブラウザ内で高速レンダリングします。
-重厚な3Dモデル（gltf）を使わず、ベクトルデータをその場で「引き伸ばす（Extrude）」処理を行うため、驚異的な軽さを実現しています。
+Powered by **MapLibre GL JS**, the system renders high-speed graphics within the browser using the device's GPU.
+By avoiding heavy 3D models (gltf) and performing "Extrusion" processing on vector data on-the-fly, we achieve incredible lightness and speed.
 
 ---
 
 ## 🚀 Usage
 
 ### For Users
-アクセスするだけで使用可能です。インストール不要。
-検索ボックスに都市名（例: `Kashiwa`, `Manhattan`, `Paris`）を入力して GO を押してください。
+No installation required. Just access the URL.
+Enter a city name (e.g., `Kashiwa`, `Manhattan`, `Paris`, `Detroit`) in the search box and press **GO**.
 
 ### For Developers (Local Run)
 ```bash
 # Clone repository
-git clone https://github.com/SBCM-Alliance/distortion-map.git
+git clone https://github.com/SBCM-Alliance/SBCM-Global-Scanner.git
 
-# Run via Python simple server (CORS回避のため)
-cd distortion-map
+# Run via Python simple server (to avoid CORS issues)
+cd SBCM-Global-Scanner
 python3 -m http.server
 
 # Open http://localhost:8000
@@ -91,4 +95,3 @@ python3 -m http.server
 <p align="center">
   <small>© 2025 SBCM Alliance. Powered by <b>Administrative Hydraulics</b>.</small>
 </p>
-```
