@@ -34,6 +34,7 @@ We estimate the "Tax Revenue Potential (Profitability)" per unit of land area ba
 
 | Color | Height | Status | Meaning |
 | :--- | :--- | :--- | :--- |
+| <span style="color:#ffd700">■</span> **GOLD** | **Industry** | **PRODUCTION** | **Value Creation Engine.** Factories, Logistics, Commercial hubs. These areas generate the "Energy" that sustains the city. |
 | <span style="color:#00ffff">■</span> **CYAN** | **> 30m** | **HIGH (Excellent)** | **High Density.** High number of residents/tenants per infrastructure unit cost. These are the "Wealth Pumps" generating surplus. |
 | <span style="color:#00ff41">■</span> **GREEN** | **> 10m** | **MID (Efficient)** | **Medium Density.** Buildings with 3+ floors. Sustainable density for an urban environment. |
 | <span style="color:#ff0055">■</span> **RED** | **< 10m** | **LOW (Sprawl)** | **Low Density.** 2-story houses or less. A "Red Zone" where tax revenue often fails to cover infrastructure maintenance costs. |
